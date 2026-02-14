@@ -23,6 +23,8 @@ from scrapers.reddit_scraper import RedditScraper
 from scrapers.github_scraper import GitHubScraper
 from scrapers.instructables_scraper import InstructablesScraper
 from scrapers.general_scraper import GeneralScraper
+from scrapers.creative_scraper import CreativeScraper
+from scrapers.ddgs_helper import ddgs_search
 from ai_fallback import generate_ai_recommendations
 
 logger = logging.getLogger(__name__)
@@ -33,6 +35,7 @@ SCRAPERS = [
     GitHubScraper(),
     InstructablesScraper(),
     GeneralScraper(),
+    CreativeScraper(),
 ]
 
 PER_SOURCE_TIMEOUT = 60  # seconds
@@ -74,7 +77,7 @@ def _normalize_difficulty(raw: str) -> str:
 
 
 def _classify_type(project: dict, mode: str) -> str:
-    """Determine if a project is Software or Hardware Harvest."""
+    """Determine if a project is Software, Hardware Harvest, or Creative Build."""
     text = f"{project.get('title', '')} {project.get('description', '')}".lower()
     hardware_keywords = [
         "teardown", "harvest", "disassembly", "component", "extract",
@@ -83,6 +86,16 @@ def _classify_type(project: dict, mode: str) -> str:
     ]
     if mode == "Teardown/Harvest" and any(kw in text for kw in hardware_keywords):
         return "Hardware Harvest"
+
+    creative_keywords = [
+        "convert into", "transform into", "build into", "make into",
+        "secondary display", "external monitor", "portable monitor",
+        "diy perks", "conversion", "custom build", "repurpose into",
+        "turned into", "made from", "built from", "transform",
+    ]
+    if any(kw in text for kw in creative_keywords):
+        return "Creative Build"
+
     return "Software"
 
 
@@ -172,6 +185,7 @@ async def run_pipeline(
         "GitHub": "github",
         "Instructables": "instructables",
         "Web": "general",
+        "Creative": "creative",
     }
 
     all_thoughts.append(
@@ -189,7 +203,29 @@ async def run_pipeline(
         )
 
     tasks = [_run_scraper(s) for s in SCRAPERS]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Also search for disassembly manual concurrently
+    async def _find_disassembly_url():
+        try:
+            results = await ddgs_search(
+                f"site:ifixit.com {device} teardown disassembly guide",
+                max_results=3, timeout=15.0,
+            )
+            for r in results:
+                url = r.get("href", "")
+                if "ifixit.com" in url:
+                    return url
+        except Exception:
+            pass
+        return ""
+
+    all_tasks = tasks + [_find_disassembly_url()]
+    all_results = await asyncio.gather(*all_tasks, return_exceptions=True)
+
+    # Split: first N are scraper results, last is disassembly URL
+    results = all_results[:-1]
+    disasm_result = all_results[-1]
+    disassembly_url = disasm_result if isinstance(disasm_result, str) else ""
 
     # ── Step 3: Collect results ───────────────────────────────────────────
     all_projects: list[dict] = []
@@ -235,11 +271,20 @@ async def run_pipeline(
 
     # ── Step 5: Score, convert, rank ──────────────────────────────────────
     all_thoughts.append(_thought("Scoring projects by device compatibility..."))
+    if disassembly_url:
+        all_thoughts.append(_thought(f"Found disassembly manual: {disassembly_url[:60]}..."))
 
     recommendations: list[ProjectRecommendation] = []
     for p in deduped:
         score = _score_project(p, device, conditions, mode)
-        proj_type = p.get("type") if p.get("platform") == "AI Generated" else _classify_type(p, mode)
+
+        # Use explicit type if set (creative scraper / AI), otherwise classify
+        explicit_type = p.get("type")
+        if explicit_type in ("Software", "Hardware Harvest", "Creative Build"):
+            proj_type = explicit_type
+        else:
+            proj_type = _classify_type(p, mode)
+
         difficulty = _normalize_difficulty(p.get("difficulty", "Intermediate"))
 
         steps: list[StepByStepInstruction] = []
@@ -272,7 +317,7 @@ async def run_pipeline(
         )
 
     recommendations.sort(key=lambda r: r.compatibilityScore, reverse=True)
-    recommendations = recommendations[:15]  # cap at 15
+    recommendations = recommendations[:20]  # cap at 20 (more space for 3 tabs)
 
     all_thoughts.append(
         _thought(f"Synthesis complete. Generated {len(recommendations)} recommendations.")
@@ -294,4 +339,5 @@ async def run_pipeline(
             f"{', '.join(conditions) if conditions else 'no reported issues'}"
             f" — Mode: {mode}"
         ),
+        disassemblyUrl=disassembly_url,
     )

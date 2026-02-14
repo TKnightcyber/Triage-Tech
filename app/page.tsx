@@ -1,65 +1,825 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  Search,
+  Monitor,
+  MonitorOff,
+  Battery,
+  BatteryWarning,
+  Fingerprint,
+  Camera,
+  CameraOff,
+  Volume2,
+  VolumeX,
+  PlugZap,
+  Wrench,
+  Recycle,
+  Terminal,
+  ChevronRight,
+  Star,
+  ShoppingCart,
+  ExternalLink,
+  RotateCcw,
+  Cpu,
+  Scissors,
+  Leaf,
+  AlertTriangle,
+  Youtube,
+  MessageSquare,
+  Github,
+  BookOpen,
+  Globe,
+  ListOrdered,
+  Lightbulb,
+} from "lucide-react";
+import type {
+  DeviceCondition,
+  ResearchMode,
+  ResearchPhase,
+  ResearchResponse,
+  ProjectRecommendation,
+  ThoughtLogEntry,
+} from "@/types";
+
+// ─── Condition Toggle Config ─────────────────────────────────────────────────
+
+const CONDITIONS: {
+  label: DeviceCondition;
+  icon: React.ReactNode;
+  activeIcon: React.ReactNode;
+}[] = [
+  {
+    label: "Screen Broken",
+    icon: <Monitor className="w-5 h-5" />,
+    activeIcon: <MonitorOff className="w-5 h-5" />,
+  },
+  {
+    label: "Bad Battery",
+    icon: <Battery className="w-5 h-5" />,
+    activeIcon: <BatteryWarning className="w-5 h-5" />,
+  },
+  {
+    label: "Touch Broken",
+    icon: <Fingerprint className="w-5 h-5" />,
+    activeIcon: <Fingerprint className="w-5 h-5 opacity-50" />,
+  },
+  {
+    label: "Camera Dead",
+    icon: <Camera className="w-5 h-5" />,
+    activeIcon: <CameraOff className="w-5 h-5" />,
+  },
+  {
+    label: "Speaker Broken",
+    icon: <Volume2 className="w-5 h-5" />,
+    activeIcon: <VolumeX className="w-5 h-5" />,
+  },
+  {
+    label: "No Charging Port",
+    icon: <PlugZap className="w-5 h-5" />,
+    activeIcon: <PlugZap className="w-5 h-5 opacity-50" />,
+  },
+];
+
+// ─── Platform Icon Config ────────────────────────────────────────────────────
+
+const PLATFORM_ICONS: Record<string, { icon: React.ReactNode; color: string }> = {
+  YouTube:       { icon: <Youtube className="w-3.5 h-3.5" />, color: "text-red-400 bg-red-500/15" },
+  Reddit:        { icon: <MessageSquare className="w-3.5 h-3.5" />, color: "text-orange-400 bg-orange-500/15" },
+  GitHub:        { icon: <Github className="w-3.5 h-3.5" />, color: "text-purple-400 bg-purple-500/15" },
+  Instructables: { icon: <BookOpen className="w-3.5 h-3.5" />, color: "text-yellow-400 bg-yellow-500/15" },
+  Hackaday:      { icon: <BookOpen className="w-3.5 h-3.5" />, color: "text-yellow-400 bg-yellow-500/15" },
+  iFixit:        { icon: <Wrench className="w-3.5 h-3.5" />, color: "text-blue-400 bg-blue-500/15" },
+  Web:           { icon: <Globe className="w-3.5 h-3.5" />, color: "text-zinc-400 bg-zinc-500/15" },
+};
+
+// ─── Difficulty badge helper ─────────────────────────────────────────────────
+
+function DifficultyBadge({ level }: { level: string }) {
+  const config: Record<string, { bg: string; text: string }> = {
+    Beginner: { bg: "bg-emerald-500/20", text: "text-emerald-400" },
+    Intermediate: { bg: "bg-yellow-500/20", text: "text-yellow-400" },
+    Expert: { bg: "bg-red-500/20", text: "text-red-400" },
+  };
+  const c = config[level] ?? config.Beginner;
+  return (
+    <span
+      className={`text-xs font-semibold px-2 py-0.5 rounded-full ${c.bg} ${c.text}`}
+    >
+      {level}
+    </span>
+  );
+}
+
+// ─── Score ring ──────────────────────────────────────────────────────────────
+
+function ScoreRing({ score }: { score: number }) {
+  const radius = 18;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (score / 100) * circumference;
+  const color =
+    score >= 80
+      ? "stroke-emerald-400"
+      : score >= 50
+        ? "stroke-yellow-400"
+        : "stroke-red-400";
+
+  return (
+    <div className="relative w-12 h-12 flex-shrink-0">
+      <svg className="w-12 h-12 -rotate-90" viewBox="0 0 44 44">
+        <circle
+          cx="22"
+          cy="22"
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          className="text-zinc-700"
+          strokeWidth="3"
+        />
+        <circle
+          cx="22"
+          cy="22"
+          r={radius}
+          fill="none"
+          className={color}
+          strokeWidth="3"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+        />
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-zinc-200">
+        {score}
+      </span>
+    </div>
+  );
+}
+
+// ─── Project Card ────────────────────────────────────────────────────────────
+
+function ProjectCard({ project }: { project: ProjectRecommendation }) {
+  const [expanded, setExpanded] = useState(false);
+  const platformCfg = PLATFORM_ICONS[project.platform ?? "Web"] ?? PLATFORM_ICONS.Web;
+
+  const cardStyle =
+    project.type === "Software"
+      ? "border-emerald-500/30 bg-emerald-950/20 hover:border-emerald-500/50"
+      : project.type === "Creative Build"
+        ? "border-cyan-500/30 bg-cyan-950/20 hover:border-cyan-500/50"
+        : "border-orange-500/30 bg-orange-950/20 hover:border-orange-500/50";
+
+  const stepColor =
+    project.type === "Creative Build"
+      ? "bg-cyan-500/20 text-cyan-400"
+      : project.type === "Hardware Harvest"
+        ? "bg-orange-500/20 text-orange-400"
+        : "bg-emerald-500/20 text-emerald-400";
+
+  const bulletColor =
+    project.type === "Creative Build"
+      ? "bg-cyan-500"
+      : project.type === "Hardware Harvest"
+        ? "bg-orange-500"
+        : "bg-emerald-500";
+
+  const linkColor =
+    project.type === "Creative Build"
+      ? "text-cyan-400 hover:text-cyan-300"
+      : project.type === "Hardware Harvest"
+        ? "text-orange-400 hover:text-orange-300"
+        : "text-emerald-400 hover:text-emerald-300";
+
+  return (
+    <div
+      className={`rounded-lg border transition-all duration-200 ${cardStyle}`}
+    >
+      <div
+        className="p-4 cursor-pointer"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-start gap-3">
+          <ScoreRing score={project.compatibilityScore} />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="font-semibold text-zinc-100 text-sm">
+                {project.title}
+              </h3>
+              <DifficultyBadge level={project.difficulty} />
+              {project.platform && (
+                <span
+                  className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${platformCfg.color}`}
+                >
+                  {platformCfg.icon}
+                  {project.platform}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-zinc-400 mt-1 line-clamp-2">
+              {project.description}
+            </p>
+          </div>
+          <ChevronRight
+            className={`w-4 h-4 text-zinc-500 transition-transform flex-shrink-0 mt-1 ${
+              expanded ? "rotate-90" : ""
+            }`}
+          />
+        </div>
+      </div>
+
+      {expanded && (
+        <div className="px-4 pb-4 border-t border-zinc-800 pt-3 space-y-3">
+          <div>
+            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-1">
+              Why this works
+            </p>
+            <p className="text-sm text-zinc-300">{project.reasoning}</p>
+          </div>
+
+          {project.steps && project.steps.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1">
+                <ListOrdered className="w-3 h-3" /> Step-by-Step Instructions
+              </p>
+              <ol className="space-y-2">
+                {project.steps.map((step) => (
+                  <li
+                    key={step.stepNumber}
+                    className="flex gap-3 text-sm text-zinc-300"
+                  >
+                    <span className={`flex-shrink-0 w-6 h-6 rounded-full ${stepColor} flex items-center justify-center text-xs font-bold`}>
+                      {step.stepNumber}
+                    </span>
+                    <span>{step.description}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          <div>
+            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+              <ShoppingCart className="w-3 h-3" /> Shopping List
+            </p>
+            <ul className="space-y-1">
+              {project.requiredParts.map((part, i) => (
+                <li key={i} className="text-sm text-zinc-300 flex items-center gap-2">
+                  <span className={`w-1.5 h-1.5 rounded-full ${bulletColor} flex-shrink-0`} />
+                  {part}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {project.sourceUrl && (
+            <a
+              href={project.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`inline-flex items-center gap-1 text-xs ${linkColor} transition-colors`}
+            >
+              <ExternalLink className="w-3 h-3" />
+              View Source
+            </a>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function Home() {
+  // Input State
+  const [deviceName, setDeviceName] = useState("");
+  const [conditions, setConditions] = useState<DeviceCondition[]>([]);
+  const [mode, setMode] = useState<ResearchMode>("Standard");
+
+  // Research State
+  const [phase, setPhase] = useState<ResearchPhase>("idle");
+  const [visibleThoughts, setVisibleThoughts] = useState<ThoughtLogEntry[]>([]);
+  const [response, setResponse] = useState<ResearchResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"software" | "creative" | "hardware">("software");
+
+  const terminalRef = useRef<HTMLDivElement>(null);
+  const thoughtIndexRef = useRef(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const allThoughtsRef = useRef<ThoughtLogEntry[]>([]);
+
+  // Auto-scroll terminal
+  useEffect(() => {
+    if (terminalRef.current) {
+      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+    }
+  }, [visibleThoughts]);
+
+  // Condition toggle
+  const toggleCondition = (c: DeviceCondition) => {
+    setConditions((prev) =>
+      prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]
+    );
+  };
+
+  // Animate thoughts one-by-one
+  const animateThoughts = useCallback(
+    (thoughts: ThoughtLogEntry[], onDone: () => void) => {
+      allThoughtsRef.current = thoughts;
+      thoughtIndexRef.current = 0;
+      setVisibleThoughts([]);
+
+      timerRef.current = setInterval(() => {
+        const idx = thoughtIndexRef.current;
+        if (idx >= allThoughtsRef.current.length) {
+          if (timerRef.current) clearInterval(timerRef.current);
+          onDone();
+          return;
+        }
+        setVisibleThoughts((prev) => [...prev, allThoughtsRef.current[idx]]);
+        thoughtIndexRef.current += 1;
+
+        // Update phase label based on progress
+        const progress = idx / allThoughtsRef.current.length;
+        if (progress < 0.3) setPhase("searching");
+        else if (progress < 0.7) setPhase("analyzing");
+        else setPhase("synthesizing");
+      }, 400);
+    },
+    []
+  );
+
+  // Submit research request
+  const handleSubmit = async () => {
+    if (!deviceName.trim()) return;
+
+    setPhase("searching");
+    setError(null);
+    setResponse(null);
+    setVisibleThoughts([]);
+
+    try {
+      const res = await fetch("/api/research", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deviceName, conditions, mode }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Research failed. Please try again.");
+      }
+
+      const data: ResearchResponse = await res.json();
+
+      // Animate the thought log then reveal results
+      animateThoughts(data.thoughts, () => {
+        setResponse(data);
+        setPhase("complete");
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error.");
+      setPhase("error");
+    }
+  };
+
+  // Reset everything
+  const handleReset = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    setPhase("idle");
+    setDeviceName("");
+    setConditions([]);
+    setMode("Standard");
+    setResponse(null);
+    setError(null);
+    setVisibleThoughts([]);
+    setActiveTab("software");
+  };
+
+  // Split recommendations
+  const softwareProjects =
+    response?.recommendations.filter((r) => r.type === "Software") ?? [];
+  const hardwareProjects =
+    response?.recommendations.filter((r) => r.type === "Hardware Harvest") ?? [];
+  const creativeProjects =
+    response?.recommendations.filter((r) => r.type === "Creative Build") ?? [];
+
+  // Phase label
+  const phaseLabel: Record<ResearchPhase, string> = {
+    idle: "",
+    searching: "Searching the web...",
+    analyzing: "Analyzing results...",
+    synthesizing: "Synthesizing recommendations...",
+    complete: "Research complete",
+    error: "Error occurred",
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="min-h-screen bg-zinc-950 text-zinc-100">
+      {/* ─── Header ─────────────────────────────────────────────────── */}
+      <header className="border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-sm sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Recycle className="w-6 h-6 text-emerald-400" />
+            <h1 className="text-lg font-bold tracking-tight">
+              <span className="text-emerald-400">Second Life</span> Hardware
+              Matcher
+            </h1>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-zinc-500">
+            <Leaf className="w-4 h-4 text-emerald-600" />
+            <span>Green Computing Initiative</span>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </header>
+
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        {/* === SCREEN 1: Triage (Input) === */}
+        {phase === "idle" && (
+          <div className="max-w-2xl mx-auto space-y-8">
+            {/* Tagline */}
+            <div className="text-center space-y-2">
+              <h2 className="text-3xl font-bold tracking-tight">
+                Don&apos;t trash it.{" "}
+                <span className="text-emerald-400">Transform it.</span>
+              </h2>
+              <p className="text-zinc-400">
+                Enter your old device and we&apos;ll find its second life — as a
+                server, sensor hub, or organ donor for your next project.
+              </p>
+            </div>
+
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
+              <input
+                type="text"
+                value={deviceName}
+                onChange={(e) => setDeviceName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+                placeholder="What device are we saving? (e.g., Galaxy S9, iPhone 8, Pixel 3)"
+                className="w-full bg-zinc-900 border border-zinc-700 rounded-xl pl-12 pr-4 py-4 text-lg placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+              />
+            </div>
+
+            {/* Condition Matrix */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-zinc-400 uppercase tracking-wider">
+                What&apos;s broken?
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {CONDITIONS.map(({ label, icon, activeIcon }) => {
+                  const active = conditions.includes(label);
+                  return (
+                    <button
+                      key={label}
+                      onClick={() => toggleCondition(label)}
+                      className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all border ${
+                        active
+                          ? "bg-red-500/15 border-red-500/40 text-red-400"
+                          : "bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300"
+                      }`}
+                    >
+                      {active ? activeIcon : icon}
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Mode Switch */}
+            <div className="flex items-center justify-between bg-zinc-900 border border-zinc-700 rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <Scissors className="w-5 h-5 text-orange-400" />
+                <div>
+                  <p className="text-sm font-medium text-zinc-200">
+                    Include Hardware Harvesting
+                  </p>
+                  <p className="text-xs text-zinc-500">
+                    Destructive — extract individual components for reuse
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() =>
+                  setMode((m) =>
+                    m === "Standard" ? "Teardown/Harvest" : "Standard"
+                  )
+                }
+                className={`relative w-12 h-6 rounded-full transition-colors ${
+                  mode === "Teardown/Harvest" ? "bg-orange-500" : "bg-zinc-700"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
+                    mode === "Teardown/Harvest" ? "translate-x-6" : ""
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Submit */}
+            <button
+              onClick={handleSubmit}
+              disabled={!deviceName.trim()}
+              className="w-full py-3.5 rounded-xl font-semibold text-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-emerald-600 hover:bg-emerald-500 text-white"
+            >
+              <span className="flex items-center justify-center gap-2">
+                <Cpu className="w-5 h-5" />
+                Research Second Life Options
+              </span>
+            </button>
+          </div>
+        )}
+
+        {/* === SCREEN 2: Live Research Terminal === */}
+        {(phase === "searching" ||
+          phase === "analyzing" ||
+          phase === "synthesizing") &&
+          !response && (
+            <div className="max-w-3xl mx-auto space-y-4">
+              {/* Phase indicator */}
+              <div className="flex items-center gap-3">
+                <div className="relative flex items-center justify-center w-8 h-8">
+                  <div className="absolute inset-0 rounded-full border-2 border-emerald-500/30 border-t-emerald-400 animate-spin" />
+                  <Terminal className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-emerald-400">
+                    {phaseLabel[phase]}
+                  </p>
+                  <p className="text-xs text-zinc-500">
+                    Researching: {deviceName}
+                    {conditions.length > 0 && ` | ${conditions.join(", ")}`}
+                    {mode === "Teardown/Harvest" && " | Harvest Mode"}
+                  </p>
+                  <p className="text-xs text-zinc-600 mt-0.5">
+                    Scraping live sources may take 15-45 seconds...
+                  </p>
+                </div>
+              </div>
+
+              {/* Terminal Window */}
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+                {/* Title bar */}
+                <div className="flex items-center gap-2 px-4 py-2 bg-zinc-800/60 border-b border-zinc-700/50">
+                  <div className="flex gap-1.5">
+                    <span className="w-3 h-3 rounded-full bg-red-500/80" />
+                    <span className="w-3 h-3 rounded-full bg-yellow-500/80" />
+                    <span className="w-3 h-3 rounded-full bg-green-500/80" />
+                  </div>
+                  <span className="text-xs text-zinc-500 font-mono ml-2">
+                    agent://second-life-research
+                  </span>
+                </div>
+
+                {/* Log output */}
+                <div
+                  ref={terminalRef}
+                  className="p-4 h-80 overflow-y-auto font-mono text-sm space-y-1"
+                >
+                  {visibleThoughts.map((t, i) => (
+                    <div
+                      key={i}
+                      className="flex gap-2"
+                    >
+                      <span className="text-emerald-500 flex-shrink-0">
+                        &gt;
+                      </span>
+                      <span className="text-zinc-300">{t.message}</span>
+                    </div>
+                  ))}
+                  {/* Blinking cursor */}
+                  <div className="flex gap-2">
+                    <span className="text-emerald-500">&gt;</span>
+                    <span className="w-2 h-4 bg-emerald-400 animate-pulse" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+        {/* === SCREEN 3: Results Dashboard === */}
+        {phase === "complete" && response && (
+          <div className="space-y-6">
+            {/* Summary Bar */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-zinc-800">
+              <div>
+                <h2 className="text-xl font-bold">
+                  Results for{" "}
+                  <span className="text-emerald-400">{deviceName}</span>
+                </h2>
+                <p className="text-sm text-zinc-500 mt-0.5">
+                  {response.recommendations.length} projects found |{" "}
+                  {conditions.length > 0
+                    ? conditions.join(", ")
+                    : "No defects reported"}
+                  {mode === "Teardown/Harvest" && " | Harvest Mode"}
+                </p>
+              </div>
+              <button
+                onClick={handleReset}
+                className="flex items-center gap-2 px-4 py-2 text-sm bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors border border-zinc-700"
+              >
+                <RotateCcw className="w-4 h-4" />
+                New Search
+              </button>
+            </div>
+
+            {/* Collapsible Thought Log */}
+            <details className="group">
+              <summary className="flex items-center gap-2 text-xs text-zinc-500 cursor-pointer hover:text-zinc-400 transition-colors">
+                <Terminal className="w-3.5 h-3.5" />
+                <span>View research log ({response.thoughts.length} steps)</span>
+                <ChevronRight className="w-3 h-3 group-open:rotate-90 transition-transform" />
+              </summary>
+              <div className="mt-2 p-3 rounded-lg bg-zinc-900 border border-zinc-800 font-mono text-xs space-y-0.5 max-h-48 overflow-y-auto">
+                {response.thoughts.map((t, i) => (
+                  <div key={i} className="flex gap-2">
+                    <span className="text-emerald-600">&gt;</span>
+                    <span className="text-zinc-400">{t.message}</span>
+                  </div>
+                ))}
+              </div>
+            </details>
+
+            {/* Disassembly Manual Link */}
+            {response.disassemblyUrl && (
+              <a
+                href={response.disassemblyUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 p-4 rounded-lg border border-blue-500/30 bg-blue-950/20 hover:border-blue-500/50 transition-all group"
+              >
+                <BookOpen className="w-6 h-6 text-blue-400 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-blue-400">
+                    Disassembly Manual Available
+                  </p>
+                  <p className="text-xs text-zinc-400 truncate">
+                    iFixit teardown guide for {deviceName}
+                  </p>
+                </div>
+                <ExternalLink className="w-4 h-4 text-blue-400 flex-shrink-0 group-hover:translate-x-0.5 transition-transform" />
+              </a>
+            )}
+
+            {/* Tab Navigation */}
+            <div className="flex border-b border-zinc-800 overflow-x-auto">
+              <button
+                onClick={() => setActiveTab("software")}
+                className={`px-4 py-2.5 text-sm font-medium flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
+                  activeTab === "software"
+                    ? "border-emerald-400 text-emerald-400"
+                    : "border-transparent text-zinc-500 hover:text-zinc-300"
+                }`}
+              >
+                <Recycle className="w-4 h-4" />
+                Software Revival ({softwareProjects.length})
+              </button>
+              <button
+                onClick={() => setActiveTab("creative")}
+                className={`px-4 py-2.5 text-sm font-medium flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
+                  activeTab === "creative"
+                    ? "border-cyan-400 text-cyan-400"
+                    : "border-transparent text-zinc-500 hover:text-zinc-300"
+                }`}
+              >
+                <Lightbulb className="w-4 h-4" />
+                Creative Builds ({creativeProjects.length})
+              </button>
+              <button
+                onClick={() => setActiveTab("hardware")}
+                className={`px-4 py-2.5 text-sm font-medium flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
+                  activeTab === "hardware"
+                    ? "border-orange-400 text-orange-400"
+                    : "border-transparent text-zinc-500 hover:text-zinc-300"
+                }`}
+              >
+                <Wrench className="w-4 h-4" />
+                Hardware Harvest ({hardwareProjects.length})
+              </button>
+            </div>
+
+            {/* Tab Content */}
+            <div className="space-y-3">
+              {/* Software Revival Tab */}
+              {activeTab === "software" && (
+                <>
+                  {softwareProjects.length === 0 ? (
+                    <p className="text-sm text-zinc-500 py-8 text-center">
+                      No software projects match the current conditions.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                      {softwareProjects.map((p) => (
+                        <ProjectCard key={p.id} project={p} />
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Creative Builds Tab */}
+              {activeTab === "creative" && (
+                <>
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-cyan-950/20 border border-cyan-500/20 text-xs text-zinc-400">
+                    <Lightbulb className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
+                    <p>
+                      <span className="text-cyan-400 font-medium">DIY Perks-style projects</span> — unique conversions that
+                      transform your device into something entirely new. Each project lists the extra parts needed
+                      to make it a functioning tech piece.
+                    </p>
+                  </div>
+                  {creativeProjects.length === 0 ? (
+                    <p className="text-sm text-zinc-500 py-8 text-center">
+                      No creative build projects found. Try a different device or conditions.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                      {creativeProjects.map((p) => (
+                        <ProjectCard key={p.id} project={p} />
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Hardware Harvest Tab */}
+              {activeTab === "hardware" && (
+                <>
+                  {hardwareProjects.length === 0 ? (
+                    <div className="text-sm text-zinc-500 py-8 text-center space-y-2">
+                      <AlertTriangle className="w-8 h-8 mx-auto text-zinc-700" />
+                      <p>
+                        Hardware harvesting is disabled.
+                        <br />
+                        <button
+                          onClick={handleReset}
+                          className="text-orange-400 hover:text-orange-300 underline mt-1"
+                        >
+                          Start over
+                        </button>{" "}
+                        and enable &quot;Include Hardware Harvesting&quot; to see
+                        teardown projects.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                      {hardwareProjects.map((p) => (
+                        <ProjectCard key={p.id} project={p} />
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Legend */}
+            <div className="flex flex-wrap items-center gap-4 pt-4 border-t border-zinc-800 text-xs text-zinc-500">
+              <span className="flex items-center gap-1">
+                <Star className="w-3 h-3 text-emerald-400" /> Score = compatibility
+                with your device&apos;s condition
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" /> Beginner
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-yellow-500" />{" "}
+                Intermediate
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-red-500" /> Expert
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* === Error State === */}
+        {phase === "error" && (
+          <div className="max-w-md mx-auto text-center space-y-4 py-16">
+            <AlertTriangle className="w-12 h-12 mx-auto text-red-400" />
+            <p className="text-red-400 font-medium">{error}</p>
+            <button
+              onClick={handleReset}
+              className="px-6 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors text-sm"
+            >
+              Try Again
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ─── Footer ────────────────────────────────────────────────── */}
+      <footer className="border-t border-zinc-800 mt-16">
+        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between text-xs text-zinc-600">
+          <span>Second Life Hardware Matcher &mdash; Hackathon Prototype</span>
+          <span className="flex items-center gap-1">
+            <Leaf className="w-3 h-3" /> Reduce e-waste. Reuse hardware.
+          </span>
         </div>
-      </main>
-    </div>
+      </footer>
+    </main>
   );
 }

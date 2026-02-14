@@ -29,12 +29,15 @@ The JSON must be an array of project objects. Each project object has these fiel
 - "title": string — short project name
 - "description": string — 2-3 sentence explanation of the project
 - "difficulty": "Beginner" | "Intermediate" | "Expert"
-- "type": "Software" | "Hardware Harvest"
+- "type": "Software" | "Hardware Harvest" | "Creative Build"
 - "required_parts": string[] — list of parts, tools, or software needed
 - "steps": string[] — 5-10 detailed step-by-step instructions
 - "reasoning": string — why this project is a good fit for this device and conditions
 
-Generate 5-8 diverse projects. Include a mix of Software and Hardware Harvest types.
+Generate 5-8 diverse projects. Include a mix of Software, Hardware Harvest, and Creative Build types.
+"Creative Build" means physically transforming the device into something entirely new
+(like DIY Perks style projects — e.g., turning a laptop screen into a portable monitor,
+making a phone into a home server, building a custom Bluetooth speaker from phone parts).
 Each project must work with the device's reported conditions (broken parts).
 Be specific and actionable — include real software names, tools, and techniques."""
 
