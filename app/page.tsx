@@ -35,12 +35,28 @@ import {
 } from "lucide-react";
 import type {
   DeviceCondition,
+  DeviceType,
   ResearchMode,
   ResearchPhase,
   ResearchResponse,
   ProjectRecommendation,
   ThoughtLogEntry,
 } from "@/types";
+
+// ─── Device Type Config ──────────────────────────────────────────────────────
+
+const DEVICE_TYPES: { value: DeviceType; label: string; icon: React.ReactNode }[] = [
+  { value: "Smartphone", label: "Smartphone", icon: <Cpu className="w-4 h-4" /> },
+  { value: "Laptop", label: "Laptop", icon: <Monitor className="w-4 h-4" /> },
+  { value: "Tablet", label: "Tablet", icon: <Monitor className="w-4 h-4" /> },
+  { value: "Desktop", label: "Desktop", icon: <Cpu className="w-4 h-4" /> },
+  { value: "Other", label: "Other", icon: <Wrench className="w-4 h-4" /> },
+];
+
+// ─── RAM / Storage presets ───────────────────────────────────────────────────
+
+const RAM_OPTIONS = [0, 1, 2, 3, 4, 6, 8, 12, 16, 32, 64];
+const STORAGE_OPTIONS = [0, 8, 16, 32, 64, 128, 256, 512, 1024, 2048];
 
 // ─── Condition Toggle Config ─────────────────────────────────────────────────
 
@@ -294,6 +310,9 @@ export default function Home() {
   const [deviceName, setDeviceName] = useState("");
   const [conditions, setConditions] = useState<DeviceCondition[]>([]);
   const [mode, setMode] = useState<ResearchMode>("Standard");
+  const [deviceType, setDeviceType] = useState<DeviceType>("Smartphone");
+  const [ramGB, setRamGB] = useState(0);
+  const [storageGB, setStorageGB] = useState(0);
 
   // Research State
   const [phase, setPhase] = useState<ResearchPhase>("idle");
@@ -361,7 +380,7 @@ export default function Home() {
       const res = await fetch("/api/research", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deviceName, conditions, mode }),
+        body: JSON.stringify({ deviceName, conditions, mode, deviceType, ramGB, storageGB }),
       });
 
       if (!res.ok) {
@@ -388,6 +407,9 @@ export default function Home() {
     setDeviceName("");
     setConditions([]);
     setMode("Standard");
+    setDeviceType("Smartphone");
+    setRamGB(0);
+    setStorageGB(0);
     setResponse(null);
     setError(null);
     setVisibleThoughts([]);
@@ -422,7 +444,7 @@ export default function Home() {
           <div className="flex items-center gap-2">
             <Recycle className="w-6 h-6 text-emerald-400" />
             <h1 className="text-lg font-bold tracking-tight">
-              <span className="text-emerald-400">Second Life</span> Hardware
+              <span className="text-emerald-400">Device</span>Revive
               Matcher
             </h1>
           </div>
@@ -444,7 +466,7 @@ export default function Home() {
                 <span className="text-emerald-400">Transform it.</span>
               </h2>
               <p className="text-zinc-400">
-                Enter your old device and we&apos;ll find its second life — as a
+                Enter your old device and we&apos;ll find creative ways to revive it — as a
                 server, sensor hub, or organ donor for your next project.
               </p>
             </div>
@@ -460,6 +482,90 @@ export default function Home() {
                 placeholder="What device are we saving? (e.g., Galaxy S9, iPhone 8, Pixel 3)"
                 className="w-full bg-zinc-900 border border-zinc-700 rounded-xl pl-12 pr-4 py-4 text-lg placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/50 transition-all"
               />
+            </div>
+
+            {/* Device Type Selector */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-zinc-400 uppercase tracking-wider">
+                Device Type
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {DEVICE_TYPES.map(({ value, label, icon }) => (
+                  <button
+                    key={value}
+                    onClick={() => setDeviceType(value)}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all border ${
+                      deviceType === value
+                        ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-400"
+                        : "bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300"
+                    }`}
+                  >
+                    {icon}
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Specs: RAM + Storage */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* RAM Selector */}
+              <div className="space-y-2 bg-zinc-900 border border-zinc-700 rounded-xl p-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-zinc-400 uppercase tracking-wider">
+                    RAM
+                  </label>
+                  <span className="text-sm font-bold text-emerald-400">
+                    {ramGB === 0 ? "Unknown" : `${ramGB} GB`}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={RAM_OPTIONS.length - 1}
+                  value={RAM_OPTIONS.indexOf(ramGB)}
+                  onChange={(e) => setRamGB(RAM_OPTIONS[parseInt(e.target.value)])}
+                  className="w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                  aria-label="RAM in gigabytes"
+                />
+                <div className="flex justify-between text-xs text-zinc-600">
+                  <span>?</span>
+                  <span>1</span>
+                  <span>4</span>
+                  <span>8</span>
+                  <span>16</span>
+                  <span>64</span>
+                </div>
+              </div>
+
+              {/* Storage Selector */}
+              <div className="space-y-2 bg-zinc-900 border border-zinc-700 rounded-xl p-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-zinc-400 uppercase tracking-wider">
+                    Storage
+                  </label>
+                  <span className="text-sm font-bold text-emerald-400">
+                    {storageGB === 0 ? "Unknown" : storageGB >= 1024 ? `${storageGB / 1024} TB` : `${storageGB} GB`}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={STORAGE_OPTIONS.length - 1}
+                  value={STORAGE_OPTIONS.indexOf(storageGB)}
+                  onChange={(e) => setStorageGB(STORAGE_OPTIONS[parseInt(e.target.value)])}
+                  className="w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                  aria-label="Storage in gigabytes"
+                />
+                <div className="flex justify-between text-xs text-zinc-600">
+                  <span>?</span>
+                  <span>16</span>
+                  <span>64</span>
+                  <span>256</span>
+                  <span>1TB</span>
+                  <span>2TB</span>
+                </div>
+              </div>
             </div>
 
             {/* Condition Matrix */}
@@ -507,6 +613,7 @@ export default function Home() {
                     m === "Standard" ? "Teardown/Harvest" : "Standard"
                   )
                 }
+                aria-label="Toggle hardware harvesting mode"
                 className={`relative w-12 h-6 rounded-full transition-colors ${
                   mode === "Teardown/Harvest" ? "bg-orange-500" : "bg-zinc-700"
                 }`}
@@ -527,7 +634,7 @@ export default function Home() {
             >
               <span className="flex items-center justify-center gap-2">
                 <Cpu className="w-5 h-5" />
-                Research Second Life Options
+                Find Revival Projects
               </span>
             </button>
           </div>
@@ -814,7 +921,7 @@ export default function Home() {
       {/* ─── Footer ────────────────────────────────────────────────── */}
       <footer className="border-t border-zinc-800 mt-16">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between text-xs text-zinc-600">
-          <span>Second Life Hardware Matcher &mdash; Hackathon Prototype</span>
+          <span>DeviceRevive &mdash; Give Your Old Tech New Life</span>
           <span className="flex items-center gap-1">
             <Leaf className="w-3 h-3" /> Reduce e-waste. Reuse hardware.
           </span>

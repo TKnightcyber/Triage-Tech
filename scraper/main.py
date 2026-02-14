@@ -1,8 +1,11 @@
 """
-FastAPI entry point for the Second Life Hardware Matcher scraper service.
+FastAPI entry point for the DeviceRevive scraper service.
 
 Run with:
-    uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    uvicorn main:app --host 0.0.0.0 --port 8000
+
+Note: Avoid --reload in production or when running alongside file editors,
+as file-change restarts can kill in-flight AI creative build requests.
 """
 
 from __future__ import annotations
@@ -37,8 +40,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Second Life Scraper",
-    description="Real web scraping backend for the Second Life Hardware Matcher",
+    title="DeviceRevive Scraper",
+    description="AI-powered web scraping backend for DeviceRevive",
     lifespan=lifespan,
 )
 
@@ -88,6 +91,9 @@ async def scrape(request: ScrapeRequest):
                 device=request.deviceName,
                 conditions=request.conditions,
                 mode=request.mode,
+                device_type=request.deviceType,
+                ram_gb=request.ramGB,
+                storage_gb=request.storageGB,
             ),
             timeout=SCRAPER_TIMEOUT,
         )

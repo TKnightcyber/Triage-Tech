@@ -1,36 +1,103 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DeviceRevive
 
-## Getting Started
+An AI-powered tool that finds creative revival projects for broken or old electronics. Enter your device info, and it searches the web (YouTube, Reddit, GitHub, Instructables) **and** generates AI-powered creative build ideas using Groq LLM.
 
-First, run the development server:
+## Prerequisites
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Python 3.10+** — [python.org/downloads](https://www.python.org/downloads/)
+- **Node.js 18+** — [nodejs.org](https://nodejs.org/)
+- **Groq API Key** (free) — [console.groq.com/keys](https://console.groq.com/keys)
+
+## Quick Start (Windows)
+
+1. **Get your Groq API key** from [console.groq.com/keys](https://console.groq.com/keys)
+
+2. **Set up your API key:**
+   ```
+   copy scraper\.env.example scraper\.env
+   ```
+   Open `scraper\.env` in a text editor and replace `your_groq_api_key_here` with your actual key.
+
+3. **Run the app — double-click `start.bat`**
+
+   Or from terminal:
+   ```powershell
+   .\start.bat
+   ```
+
+   This will:
+   - Create a Python virtual environment and install dependencies
+   - Install Node.js dependencies
+   - Start the backend (port 8000) and frontend (port 3000)
+   - Open your browser to `http://localhost:3000`
+
+## Manual Start
+
+If you prefer to start things manually:
+
+### Backend (Python)
+```powershell
+cd scraper
+python -m venv ..\.venv
+..\.venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Frontend (Next.js)
+```powershell
+# In a separate terminal, from the project root:
+npm install
+npm run dev
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Then open **http://localhost:3000** in your browser.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Project Structure
 
-## Learn More
+```
+device-revive/
+├── start.bat              # Double-click to start everything
+├── start.ps1              # PowerShell startup script
+├── package.json           # Node.js dependencies
+├── types.ts               # Shared TypeScript types
+├── app/
+│   ├── page.tsx           # Main UI (React)
+│   ├── layout.tsx         # App layout
+│   ├── globals.css        # Styles
+│   └── api/research/
+│       └── route.ts       # Next.js API proxy → Python backend
+└── scraper/
+    ├── .env               # Your API key (not in repo)
+    ├── .env.example       # Template for .env
+    ├── requirements.txt   # Python dependencies
+    ├── main.py            # FastAPI server entry point
+    ├── pipeline.py        # Orchestrator: runs all scrapers + AI
+    ├── config.py          # Environment config
+    ├── schemas.py         # Pydantic models
+    ├── creative_ai.py     # Groq LLM creative builds generator
+    ├── ai_fallback.py     # AI fallback when web search fails
+    ├── query_generator.py # Search query builder
+    └── scrapers/
+        ├── base.py            # Base scraper class
+        ├── ddgs_helper.py     # DuckDuckGo search helper
+        ├── youtube_scraper.py
+        ├── reddit_scraper.py
+        ├── github_scraper.py
+        ├── general_scraper.py
+        ├── creative_scraper.py
+        └── instructables_scraper.py
+```
 
-To learn more about Next.js, take a look at the following resources:
+## What It Does
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. **Software Revival** — Projects to repurpose your device with software (install Linux, run a server, etc.)
+2. **Creative Builds** — Physical maker projects + AI-generated ideas (convert broken laptop into headless server, extract backlight for desk lamp, etc.)
+3. **Hardware Harvest** — Teardown guides to extract reusable components
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Tech Stack
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Frontend:** Next.js 16, React 19, TypeScript, Tailwind CSS 4
+- **Backend:** FastAPI, Python 3.10+
+- **AI:** Groq API (Llama 3.3 70B)
+- **Search:** DuckDuckGo (via ddgs package)

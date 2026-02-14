@@ -667,9 +667,9 @@ async function tryRealScraper(
   request: ResearchRequest
 ): Promise<ResearchResponse | null> {
   try {
-    // Quick health check (2s timeout)
+    // Quick health check (5s timeout)
     const healthController = new AbortController();
-    const healthTimer = setTimeout(() => healthController.abort(), 2000);
+    const healthTimer = setTimeout(() => healthController.abort(), 5000);
     const healthRes = await fetch(`${SCRAPER_URL}/health`, {
       signal: healthController.signal,
     });
@@ -695,8 +695,9 @@ async function tryRealScraper(
 
     const data = await res.json();
     return normalizeScraperResponse(data);
-  } catch {
+  } catch (err) {
     // Scraper unavailable — fall through to mock
+    console.error("[tryRealScraper] Failed:", err instanceof Error ? err.message : err);
     return null;
   }
 }
@@ -716,10 +717,13 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Attempt real scraper first ────────────────────────────────────────
+    console.log("[research] Attempting real scraper at", SCRAPER_URL);
     const scraperResponse = await tryRealScraper(body);
     if (scraperResponse) {
+      console.log(`[research] Real scraper returned ${scraperResponse.recommendations.length} recommendations`);
       return NextResponse.json(scraperResponse);
     }
+    console.log("[research] Real scraper unavailable, falling back to mock");
 
     // ── Fallback to mock pipeline ─────────────────────────────────────────
 

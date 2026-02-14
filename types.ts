@@ -10,11 +10,22 @@ export type DeviceCondition =
 // ─── Research Mode ───────────────────────────────────────────────────────────
 export type ResearchMode = "Standard" | "Teardown/Harvest";
 
+// ─── Device Type ─────────────────────────────────────────────────────────────
+export type DeviceType =
+  | "Smartphone"
+  | "Laptop"
+  | "Tablet"
+  | "Desktop"
+  | "Other";
+
 // ─── API Request Payload ─────────────────────────────────────────────────────
 export interface ResearchRequest {
   deviceName: string;
   conditions: DeviceCondition[];
   mode: ResearchMode;
+  deviceType?: DeviceType;
+  ramGB?: number;
+  storageGB?: number;
 }
 
 // ─── Step-by-step instruction (from scraper) ─────────────────────────────────

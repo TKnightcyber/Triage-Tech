@@ -26,6 +26,7 @@ from scrapers.general_scraper import GeneralScraper
 from scrapers.creative_scraper import CreativeScraper
 from scrapers.ddgs_helper import ddgs_search
 from ai_fallback import generate_ai_recommendations
+from creative_ai import generate_creative_builds
 
 logger = logging.getLogger(__name__)
 
@@ -167,11 +168,14 @@ async def run_pipeline(
     device: str,
     conditions: list[str],
     mode: str,
+    device_type: str = "Smartphone",
+    ram_gb: int = 0,
+    storage_gb: int = 0,
 ) -> ScrapeResponse:
     """Main entry point: orchestrate all scrapers and return structured results."""
 
     all_thoughts: list[ThoughtLogEntry] = []
-    all_thoughts.append(_thought(f"Analyzing {device} specs..."))
+    all_thoughts.append(_thought(f"Analyzing {device} ({device_type}) specs..."))
 
     # ── Step 1: Generate queries ──────────────────────────────────────────
     query_data = generate_queries(device, conditions, mode)
@@ -220,12 +224,43 @@ async def run_pipeline(
         return ""
 
     all_tasks = tasks + [_find_disassembly_url()]
+
+    # Also run AI creative builds generator concurrently
+    async def _generate_ai_creative():
+        try:
+            all_thoughts.append(
+                _thought("Activating AI Creative Builds Architect for spec-aware project ideas...")
+            )
+            result = await generate_creative_builds(
+                device=device,
+                device_type=device_type,
+                conditions=conditions,
+                ram_gb=ram_gb,
+                storage_gb=storage_gb,
+            )
+            return result
+        except Exception as e:
+            logger.warning("AI creative builds failed: %s", e)
+            return []
+
+    all_tasks.append(_generate_ai_creative())
     all_results = await asyncio.gather(*all_tasks, return_exceptions=True)
 
-    # Split: first N are scraper results, last is disassembly URL
-    results = all_results[:-1]
-    disasm_result = all_results[-1]
+    # Split: first N are scraper results, second-to-last is disassembly URL, last is AI creative
+    results = all_results[:-2]
+    disasm_result = all_results[-2]
+    ai_creative_result = all_results[-1]
     disassembly_url = disasm_result if isinstance(disasm_result, str) else ""
+    ai_creative_projects = ai_creative_result if isinstance(ai_creative_result, list) else []
+
+    logger.info(
+        "Pipeline gather: %d total results, disasm=%s, ai_creative=%d items",
+        len(all_results),
+        type(disasm_result).__name__,
+        len(ai_creative_projects),
+    )
+    if isinstance(ai_creative_result, Exception):
+        logger.error("AI creative builds returned exception: %s", ai_creative_result)
 
     # ── Step 3: Collect results ───────────────────────────────────────────
     all_projects: list[dict] = []
@@ -242,6 +277,17 @@ async def run_pipeline(
     all_thoughts.append(
         _thought(f"Collected {len(all_projects)} raw results across all sources.")
     )
+
+    # ── Step 3b: Add AI-generated creative builds ─────────────────────────
+    if ai_creative_projects:
+        all_thoughts.append(
+            _thought(f"AI Architect generated {len(ai_creative_projects)} spec-aware creative build ideas.")
+        )
+        all_projects.extend(ai_creative_projects)
+    else:
+        all_thoughts.append(
+            _thought("AI Creative Builds Architect returned no results. Using web search results only.")
+        )
 
     # ── Step 4: Deduplicate ───────────────────────────────────────────────
     deduped = _deduplicate(all_projects)
@@ -276,7 +322,22 @@ async def run_pipeline(
 
     recommendations: list[ProjectRecommendation] = []
     for p in deduped:
-        score = _score_project(p, device, conditions, mode)
+        # AI-generated creative builds already have a feasibility_score — use it directly
+        # instead of the generic condition-based scorer which penalizes them unfairly
+        is_ai_creative = p.get("platform") == "AI Generated" and p.get("type") == "Creative Build"
+
+        if is_ai_creative:
+            # Use the AI's own feasibility-based score (already mapped to 0-100 range)
+            feasibility = p.get("feasibility_score", 7)
+            if isinstance(feasibility, (int, float)):
+                score = int(min(100, max(60, feasibility * 10)))
+            else:
+                score = 75
+            # Boost for having detailed steps
+            if len(p.get("steps", [])) >= 3:
+                score = min(100, score + 5)
+        else:
+            score = _score_project(p, device, conditions, mode)
 
         # Use explicit type if set (creative scraper / AI), otherwise classify
         explicit_type = p.get("type")
@@ -295,7 +356,7 @@ async def run_pipeline(
                 )
 
         # AI-generated projects get a higher base score since they're tailored
-        if p.get("platform") == "AI Generated":
+        if p.get("platform") == "AI Generated" and not is_ai_creative:
             score = max(score, 70)
 
         reasoning = p.get("reasoning") or f"Found on {p.get('platform', 'Web')}. Compatible with your {device}'s condition."
@@ -317,7 +378,16 @@ async def run_pipeline(
         )
 
     recommendations.sort(key=lambda r: r.compatibilityScore, reverse=True)
-    recommendations = recommendations[:20]  # cap at 20 (more space for 3 tabs)
+
+    # Ensure AI creative builds always make it into results:
+    # Reserve slots for AI creative builds so they don't get pushed out by web results
+    ai_creative_recs = [r for r in recommendations if r.platform == "AI Generated" and r.type == "Creative Build"]
+    other_recs = [r for r in recommendations if not (r.platform == "AI Generated" and r.type == "Creative Build")]
+    # Keep all AI creative builds (up to 6) + fill remaining slots with other results
+    max_ai = min(len(ai_creative_recs), 6)
+    max_other = 20 - max_ai
+    recommendations = ai_creative_recs[:max_ai] + other_recs[:max_other]
+    recommendations.sort(key=lambda r: r.compatibilityScore, reverse=True)
 
     all_thoughts.append(
         _thought(f"Synthesis complete. Generated {len(recommendations)} recommendations.")

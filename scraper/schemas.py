@@ -10,6 +10,9 @@ class ScrapeRequest(BaseModel):
     deviceName: str
     conditions: list[str] = []
     mode: str = "Standard"
+    deviceType: str = "Smartphone"
+    ramGB: int = 0
+    storageGB: int = 0
 
 
 class StepByStepInstruction(BaseModel):

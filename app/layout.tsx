@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Second Life Hardware Matcher",
-  description: "Find a second life for your old devices — as servers, sensor hubs, or component donors.",
+  title: "DeviceRevive",
+  description: "AI-powered tool to find creative projects for your old or broken electronics.",
 };
 
 export default function RootLayout({
