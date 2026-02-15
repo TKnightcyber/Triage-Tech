@@ -36,6 +36,20 @@ import {
   Gift,
   Tag,
   TrendingUp,
+  Keyboard,
+  Mouse,
+  Fan,
+  HardDrive,
+  Usb,
+  Thermometer,
+  Power,
+  Tv,
+  Zap,
+  Droplets,
+  Lock,
+  Settings,
+  Wifi,
+  Printer,
 } from "lucide-react";
 import type {
   DeviceCondition,
@@ -64,44 +78,141 @@ const DEVICE_TYPES: { value: DeviceType; label: string; icon: React.ReactNode }[
 const RAM_OPTIONS = [0, 1, 2, 3, 4, 6, 8, 12, 16, 32, 64];
 const STORAGE_OPTIONS = [0, 8, 16, 32, 64, 128, 256, 512, 1024, 2048];
 
-// ─── Condition Toggle Config ─────────────────────────────────────────────────
+// ─── Condition Toggle Config (dynamic per device / appliance type) ───────────
 
-const CONDITIONS: {
-  label: DeviceCondition;
+type ConditionConfig = {
+  label: string;
   icon: React.ReactNode;
   activeIcon: React.ReactNode;
-}[] = [
-  {
-    label: "Screen Broken",
-    icon: <Monitor className="w-5 h-5" />,
-    activeIcon: <MonitorOff className="w-5 h-5" />,
-  },
-  {
-    label: "Bad Battery",
-    icon: <Battery className="w-5 h-5" />,
-    activeIcon: <BatteryWarning className="w-5 h-5" />,
-  },
-  {
-    label: "Touch Broken",
-    icon: <Fingerprint className="w-5 h-5" />,
-    activeIcon: <Fingerprint className="w-5 h-5 opacity-50" />,
-  },
-  {
-    label: "Camera Dead",
-    icon: <Camera className="w-5 h-5" />,
-    activeIcon: <CameraOff className="w-5 h-5" />,
-  },
-  {
-    label: "Speaker Broken",
-    icon: <Volume2 className="w-5 h-5" />,
-    activeIcon: <VolumeX className="w-5 h-5" />,
-  },
-  {
-    label: "No Charging Port",
-    icon: <PlugZap className="w-5 h-5" />,
-    activeIcon: <PlugZap className="w-5 h-5 opacity-50" />,
-  },
+};
+
+const SMARTPHONE_CONDITIONS: ConditionConfig[] = [
+  { label: "Screen Broken", icon: <Monitor className="w-5 h-5" />, activeIcon: <MonitorOff className="w-5 h-5" /> },
+  { label: "Bad Battery", icon: <Battery className="w-5 h-5" />, activeIcon: <BatteryWarning className="w-5 h-5" /> },
+  { label: "Touch Broken", icon: <Fingerprint className="w-5 h-5" />, activeIcon: <Fingerprint className="w-5 h-5 opacity-50" /> },
+  { label: "Camera Dead", icon: <Camera className="w-5 h-5" />, activeIcon: <CameraOff className="w-5 h-5" /> },
+  { label: "Speaker Broken", icon: <Volume2 className="w-5 h-5" />, activeIcon: <VolumeX className="w-5 h-5" /> },
+  { label: "No Charging Port", icon: <PlugZap className="w-5 h-5" />, activeIcon: <PlugZap className="w-5 h-5 opacity-50" /> },
 ];
+
+const LAPTOP_CONDITIONS: ConditionConfig[] = [
+  { label: "Screen Broken", icon: <Monitor className="w-5 h-5" />, activeIcon: <MonitorOff className="w-5 h-5" /> },
+  { label: "Bad Battery", icon: <Battery className="w-5 h-5" />, activeIcon: <BatteryWarning className="w-5 h-5" /> },
+  { label: "Keyboard Broken", icon: <Keyboard className="w-5 h-5" />, activeIcon: <Keyboard className="w-5 h-5 opacity-50" /> },
+  { label: "Trackpad Broken", icon: <Mouse className="w-5 h-5" />, activeIcon: <Mouse className="w-5 h-5 opacity-50" /> },
+  { label: "Hinge Broken", icon: <Wrench className="w-5 h-5" />, activeIcon: <Wrench className="w-5 h-5 opacity-50" /> },
+  { label: "No Charging Port", icon: <PlugZap className="w-5 h-5" />, activeIcon: <PlugZap className="w-5 h-5 opacity-50" /> },
+  { label: "Fan Broken", icon: <Fan className="w-5 h-5" />, activeIcon: <Fan className="w-5 h-5 opacity-50" /> },
+  { label: "Overheating", icon: <Thermometer className="w-5 h-5" />, activeIcon: <Thermometer className="w-5 h-5 opacity-50" /> },
+];
+
+const TABLET_CONDITIONS: ConditionConfig[] = [
+  { label: "Screen Broken", icon: <Monitor className="w-5 h-5" />, activeIcon: <MonitorOff className="w-5 h-5" /> },
+  { label: "Bad Battery", icon: <Battery className="w-5 h-5" />, activeIcon: <BatteryWarning className="w-5 h-5" /> },
+  { label: "Touch Broken", icon: <Fingerprint className="w-5 h-5" />, activeIcon: <Fingerprint className="w-5 h-5 opacity-50" /> },
+  { label: "Camera Dead", icon: <Camera className="w-5 h-5" />, activeIcon: <CameraOff className="w-5 h-5" /> },
+  { label: "Speaker Broken", icon: <Volume2 className="w-5 h-5" />, activeIcon: <VolumeX className="w-5 h-5" /> },
+  { label: "No Charging Port", icon: <PlugZap className="w-5 h-5" />, activeIcon: <PlugZap className="w-5 h-5 opacity-50" /> },
+];
+
+const DESKTOP_CONDITIONS: ConditionConfig[] = [
+  { label: "No Power", icon: <Power className="w-5 h-5" />, activeIcon: <Power className="w-5 h-5 opacity-50" /> },
+  { label: "GPU Issues", icon: <Cpu className="w-5 h-5" />, activeIcon: <Cpu className="w-5 h-5 opacity-50" /> },
+  { label: "Fan Broken", icon: <Fan className="w-5 h-5" />, activeIcon: <Fan className="w-5 h-5 opacity-50" /> },
+  { label: "No Display Output", icon: <Monitor className="w-5 h-5" />, activeIcon: <MonitorOff className="w-5 h-5" /> },
+  { label: "Drive Failed", icon: <HardDrive className="w-5 h-5" />, activeIcon: <HardDrive className="w-5 h-5 opacity-50" /> },
+  { label: "USB Ports Broken", icon: <Usb className="w-5 h-5" />, activeIcon: <Usb className="w-5 h-5 opacity-50" /> },
+  { label: "RAM Issues", icon: <Cpu className="w-5 h-5" />, activeIcon: <Cpu className="w-5 h-5 opacity-50" /> },
+  { label: "Overheating", icon: <Thermometer className="w-5 h-5" />, activeIcon: <Thermometer className="w-5 h-5 opacity-50" /> },
+];
+
+// ─── Appliance types for "Other" ────────────────────────────────────────────
+
+type ApplianceType = "Fridge" | "TV" | "Washing Machine" | "AC" | "Microwave" | "Printer" | "Other Appliance";
+
+const APPLIANCE_TYPES: { value: ApplianceType; label: string; icon: React.ReactNode }[] = [
+  { value: "Fridge", label: "Fridge", icon: <Thermometer className="w-4 h-4" /> },
+  { value: "TV", label: "TV", icon: <Tv className="w-4 h-4" /> },
+  { value: "Washing Machine", label: "Washing Machine", icon: <Droplets className="w-4 h-4" /> },
+  { value: "AC", label: "AC", icon: <Fan className="w-4 h-4" /> },
+  { value: "Microwave", label: "Microwave", icon: <Zap className="w-4 h-4" /> },
+  { value: "Printer", label: "Printer", icon: <Printer className="w-4 h-4" /> },
+  { value: "Other Appliance", label: "Other", icon: <Settings className="w-4 h-4" /> },
+];
+
+const APPLIANCE_CONDITIONS: Record<ApplianceType, ConditionConfig[]> = {
+  Fridge: [
+    { label: "Compressor Dead", icon: <Power className="w-5 h-5" />, activeIcon: <Power className="w-5 h-5 opacity-50" /> },
+    { label: "Not Cooling", icon: <Thermometer className="w-5 h-5" />, activeIcon: <Thermometer className="w-5 h-5 opacity-50" /> },
+    { label: "Water Leak", icon: <Droplets className="w-5 h-5" />, activeIcon: <Droplets className="w-5 h-5 opacity-50" /> },
+    { label: "Ice Maker Broken", icon: <Wrench className="w-5 h-5" />, activeIcon: <Wrench className="w-5 h-5 opacity-50" /> },
+    { label: "Door Seal Worn", icon: <Lock className="w-5 h-5" />, activeIcon: <Lock className="w-5 h-5 opacity-50" /> },
+    { label: "Noisy Operation", icon: <Volume2 className="w-5 h-5" />, activeIcon: <VolumeX className="w-5 h-5" /> },
+  ],
+  TV: [
+    { label: "Screen Cracked", icon: <Monitor className="w-5 h-5" />, activeIcon: <MonitorOff className="w-5 h-5" /> },
+    { label: "No Display", icon: <MonitorOff className="w-5 h-5" />, activeIcon: <MonitorOff className="w-5 h-5 opacity-50" /> },
+    { label: "No Sound", icon: <Volume2 className="w-5 h-5" />, activeIcon: <VolumeX className="w-5 h-5" /> },
+    { label: "Remote Not Working", icon: <Wifi className="w-5 h-5" />, activeIcon: <Wifi className="w-5 h-5 opacity-50" /> },
+    { label: "Backlight Failed", icon: <Lightbulb className="w-5 h-5" />, activeIcon: <Lightbulb className="w-5 h-5 opacity-50" /> },
+    { label: "HDMI Ports Broken", icon: <Usb className="w-5 h-5" />, activeIcon: <Usb className="w-5 h-5 opacity-50" /> },
+  ],
+  "Washing Machine": [
+    { label: "Won't Spin", icon: <RotateCcw className="w-5 h-5" />, activeIcon: <RotateCcw className="w-5 h-5 opacity-50" /> },
+    { label: "Water Leak", icon: <Droplets className="w-5 h-5" />, activeIcon: <Droplets className="w-5 h-5 opacity-50" /> },
+    { label: "Won't Drain", icon: <Droplets className="w-5 h-5" />, activeIcon: <Droplets className="w-5 h-5 opacity-50" /> },
+    { label: "Noisy Operation", icon: <Volume2 className="w-5 h-5" />, activeIcon: <VolumeX className="w-5 h-5" /> },
+    { label: "Door Won't Lock", icon: <Lock className="w-5 h-5" />, activeIcon: <Lock className="w-5 h-5 opacity-50" /> },
+    { label: "Control Panel Dead", icon: <Settings className="w-5 h-5" />, activeIcon: <Settings className="w-5 h-5 opacity-50" /> },
+  ],
+  AC: [
+    { label: "Not Cooling", icon: <Thermometer className="w-5 h-5" />, activeIcon: <Thermometer className="w-5 h-5 opacity-50" /> },
+    { label: "Compressor Dead", icon: <Power className="w-5 h-5" />, activeIcon: <Power className="w-5 h-5 opacity-50" /> },
+    { label: "Gas Leak", icon: <AlertTriangle className="w-5 h-5" />, activeIcon: <AlertTriangle className="w-5 h-5 opacity-50" /> },
+    { label: "Noisy Operation", icon: <Volume2 className="w-5 h-5" />, activeIcon: <VolumeX className="w-5 h-5" /> },
+    { label: "Remote Not Working", icon: <Wifi className="w-5 h-5" />, activeIcon: <Wifi className="w-5 h-5 opacity-50" /> },
+    { label: "Water Dripping", icon: <Droplets className="w-5 h-5" />, activeIcon: <Droplets className="w-5 h-5 opacity-50" /> },
+  ],
+  Microwave: [
+    { label: "Not Heating", icon: <Thermometer className="w-5 h-5" />, activeIcon: <Thermometer className="w-5 h-5 opacity-50" /> },
+    { label: "Turntable Broken", icon: <RotateCcw className="w-5 h-5" />, activeIcon: <RotateCcw className="w-5 h-5 opacity-50" /> },
+    { label: "Door Won't Close", icon: <Lock className="w-5 h-5" />, activeIcon: <Lock className="w-5 h-5 opacity-50" /> },
+    { label: "Display Dead", icon: <Monitor className="w-5 h-5" />, activeIcon: <MonitorOff className="w-5 h-5" /> },
+    { label: "Sparking Inside", icon: <Zap className="w-5 h-5" />, activeIcon: <Zap className="w-5 h-5 opacity-50" /> },
+    { label: "Buttons Unresponsive", icon: <Settings className="w-5 h-5" />, activeIcon: <Settings className="w-5 h-5 opacity-50" /> },
+  ],
+  Printer: [
+    { label: "Paper Jam", icon: <Printer className="w-5 h-5" />, activeIcon: <Printer className="w-5 h-5 opacity-50" /> },
+    { label: "Not Printing", icon: <Printer className="w-5 h-5" />, activeIcon: <Printer className="w-5 h-5 opacity-50" /> },
+    { label: "Low Quality Print", icon: <AlertTriangle className="w-5 h-5" />, activeIcon: <AlertTriangle className="w-5 h-5 opacity-50" /> },
+    { label: "Wi-Fi Issues", icon: <Wifi className="w-5 h-5" />, activeIcon: <Wifi className="w-5 h-5 opacity-50" /> },
+    { label: "Scanner Broken", icon: <Camera className="w-5 h-5" />, activeIcon: <CameraOff className="w-5 h-5" /> },
+    { label: "Ink Issues", icon: <Droplets className="w-5 h-5" />, activeIcon: <Droplets className="w-5 h-5 opacity-50" /> },
+  ],
+  "Other Appliance": [
+    { label: "No Power", icon: <Power className="w-5 h-5" />, activeIcon: <Power className="w-5 h-5 opacity-50" /> },
+    { label: "Not Working", icon: <AlertTriangle className="w-5 h-5" />, activeIcon: <AlertTriangle className="w-5 h-5 opacity-50" /> },
+    { label: "Noisy Operation", icon: <Volume2 className="w-5 h-5" />, activeIcon: <VolumeX className="w-5 h-5" /> },
+    { label: "Physical Damage", icon: <Wrench className="w-5 h-5" />, activeIcon: <Wrench className="w-5 h-5 opacity-50" /> },
+    { label: "Leaking", icon: <Droplets className="w-5 h-5" />, activeIcon: <Droplets className="w-5 h-5 opacity-50" /> },
+    { label: "Overheating", icon: <Thermometer className="w-5 h-5" />, activeIcon: <Thermometer className="w-5 h-5 opacity-50" /> },
+  ],
+};
+
+// Helper to get conditions for a device type (+ appliance type for "Other")
+function getConditionsForDevice(
+  deviceType: DeviceType,
+  applianceType: ApplianceType | null
+): ConditionConfig[] {
+  switch (deviceType) {
+    case "Smartphone": return SMARTPHONE_CONDITIONS;
+    case "Laptop": return LAPTOP_CONDITIONS;
+    case "Tablet": return TABLET_CONDITIONS;
+    case "Desktop": return DESKTOP_CONDITIONS;
+    case "Other": return applianceType ? APPLIANCE_CONDITIONS[applianceType] : [];
+    default: return SMARTPHONE_CONDITIONS;
+  }
+}
 
 // ─── Platform Icon Config ────────────────────────────────────────────────────
 
@@ -336,6 +447,14 @@ export default function Home() {
   const [ecoResult, setEcoResult] = useState<EcoValuation | null>(null);
   const [ecoError, setEcoError] = useState<string | null>(null);
 
+  // Appliance type state (for "Other" device type)
+  const [applianceType, setApplianceType] = useState<ApplianceType | null>(null);
+  const [ecoApplianceType, setEcoApplianceType] = useState<ApplianceType | null>(null);
+
+  // Compute dynamic conditions for each section
+  const currentConditions = getConditionsForDevice(deviceType, applianceType);
+  const currentEcoConditions = getConditionsForDevice(ecoDeviceType, ecoApplianceType);
+
   const terminalRef = useRef<HTMLDivElement>(null);
   const thoughtIndexRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -348,7 +467,7 @@ export default function Home() {
     }
   }, [visibleThoughts]);
 
-  // Condition toggle
+  // Condition toggle (main section)
   const toggleCondition = (c: DeviceCondition) => {
     setConditions((prev) =>
       prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]
@@ -360,6 +479,32 @@ export default function Home() {
     setEcoConditions((prev) =>
       prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]
     );
+  };
+
+  // Handle device type change (main section) — clear conditions + appliance
+  const handleDeviceTypeChange = (dt: DeviceType) => {
+    setDeviceType(dt);
+    setConditions([]);
+    if (dt !== "Other") setApplianceType(null);
+  };
+
+  // Handle appliance type change (main section) — clear conditions
+  const handleApplianceTypeChange = (at: ApplianceType) => {
+    setApplianceType(at);
+    setConditions([]);
+  };
+
+  // Handle device type change (eco section) — clear conditions + appliance
+  const handleEcoDeviceTypeChange = (dt: DeviceType) => {
+    setEcoDeviceType(dt);
+    setEcoConditions([]);
+    if (dt !== "Other") setEcoApplianceType(null);
+  };
+
+  // Handle appliance type change (eco section) — clear conditions
+  const handleEcoApplianceTypeChange = (at: ApplianceType) => {
+    setEcoApplianceType(at);
+    setEcoConditions([]);
   };
 
   // Eco Exchange submit
@@ -396,6 +541,7 @@ export default function Home() {
     setEcoDevice("");
     setEcoConditions([]);
     setEcoDeviceType("Smartphone");
+    setEcoApplianceType(null);
     setEcoNotes("");
     setEcoResult(null);
     setEcoError(null);
@@ -469,6 +615,7 @@ export default function Home() {
     setConditions([]);
     setMode("Standard");
     setDeviceType("Smartphone");
+    setApplianceType(null);
     setRamGB(0);
     setStorageGB(0);
     setResponse(null);
@@ -554,7 +701,7 @@ export default function Home() {
                 {DEVICE_TYPES.map(({ value, label, icon }) => (
                   <button
                     key={value}
-                    onClick={() => setDeviceType(value)}
+                    onClick={() => handleDeviceTypeChange(value)}
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all border ${
                       deviceType === value
                         ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-400"
@@ -567,6 +714,31 @@ export default function Home() {
                 ))}
               </div>
             </div>
+
+            {/* Appliance Type Selector (only when "Other" is selected) */}
+            {deviceType === "Other" && (
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-zinc-400 uppercase tracking-wider">
+                  What kind of appliance?
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {APPLIANCE_TYPES.map(({ value, label, icon }) => (
+                    <button
+                      key={value}
+                      onClick={() => handleApplianceTypeChange(value)}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all border ${
+                        applianceType === value
+                          ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-400"
+                          : "bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300"
+                      }`}
+                    >
+                      {icon}
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Specs: RAM + Storage */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -634,25 +806,31 @@ export default function Home() {
               <label className="text-sm font-medium text-zinc-400 uppercase tracking-wider">
                 What&apos;s broken?
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {CONDITIONS.map(({ label, icon, activeIcon }) => {
-                  const active = conditions.includes(label);
-                  return (
-                    <button
-                      key={label}
-                      onClick={() => toggleCondition(label)}
-                      className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all border ${
-                        active
-                          ? "bg-red-500/15 border-red-500/40 text-red-400"
-                          : "bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300"
-                      }`}
-                    >
-                      {active ? activeIcon : icon}
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
+              {currentConditions.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {currentConditions.map(({ label, icon, activeIcon }) => {
+                    const active = conditions.includes(label);
+                    return (
+                      <button
+                        key={label}
+                        onClick={() => toggleCondition(label)}
+                        className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all border ${
+                          active
+                            ? "bg-red-500/15 border-red-500/40 text-red-400"
+                            : "bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300"
+                        }`}
+                      >
+                        {active ? activeIcon : icon}
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : deviceType === "Other" ? (
+                <p className="text-xs text-zinc-600">
+                  Select an appliance type above to see relevant conditions.
+                </p>
+              ) : null}
             </div>
 
             {/* Mode Switch */}
@@ -749,7 +927,7 @@ export default function Home() {
                 {DEVICE_TYPES.map(({ value, label, icon }) => (
                   <button
                     key={value}
-                    onClick={() => setEcoDeviceType(value)}
+                    onClick={() => handleEcoDeviceTypeChange(value)}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
                       ecoDeviceType === value
                         ? "bg-green-500/15 border-green-500/40 text-green-400"
@@ -763,31 +941,62 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Eco Appliance Type Selector (only when "Other" is selected) */}
+            {ecoDeviceType === "Other" && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-400 uppercase tracking-wider">
+                  What kind of appliance?
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {APPLIANCE_TYPES.map(({ value, label, icon }) => (
+                    <button
+                      key={value}
+                      onClick={() => handleEcoApplianceTypeChange(value)}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
+                        ecoApplianceType === value
+                          ? "bg-green-500/15 border-green-500/40 text-green-400"
+                          : "bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300"
+                      }`}
+                    >
+                      {icon}
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Eco Condition Selector */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-zinc-400 uppercase tracking-wider">
                 What&apos;s wrong with it?
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {CONDITIONS.map(({ label, icon, activeIcon }) => {
-                  const active = ecoConditions.includes(label);
-                  return (
-                    <button
-                      key={label}
-                      onClick={() => toggleEcoCondition(label)}
-                      className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all border ${
-                        active
-                          ? "bg-red-500/15 border-red-500/40 text-red-400"
-                          : "bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300"
-                      }`}
-                    >
-                      {active ? activeIcon : icon}
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-              {ecoConditions.length === 0 && (
+              {currentEcoConditions.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {currentEcoConditions.map(({ label, icon, activeIcon }) => {
+                    const active = ecoConditions.includes(label);
+                    return (
+                      <button
+                        key={label}
+                        onClick={() => toggleEcoCondition(label)}
+                        className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all border ${
+                          active
+                            ? "bg-red-500/15 border-red-500/40 text-red-400"
+                            : "bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300"
+                        }`}
+                      >
+                        {active ? activeIcon : icon}
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : ecoDeviceType === "Other" ? (
+                <p className="text-xs text-zinc-600">
+                  Select an appliance type above to see relevant conditions.
+                </p>
+              ) : null}
+              {currentEcoConditions.length > 0 && ecoConditions.length === 0 && (
                 <p className="text-xs text-zinc-600">
                   Leave empty if the device is just old but fully working.
                 </p>
@@ -863,22 +1072,16 @@ export default function Home() {
                     <div className="rounded-lg bg-zinc-800/60 border border-zinc-700/50 p-4 text-center">
                       <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Can Sell For</p>
                       <p className="text-2xl font-bold text-green-400">
-                        ${ecoResult.valuationSummary.estimatedResaleUsd}
-                      </p>
-                      <p className="text-sm font-medium text-green-300/70 mt-0.5">
                         ₹{ecoResult.valuationSummary.estimatedResaleInr?.toLocaleString("en-IN")}
                       </p>
-                      <p className="text-[10px] text-zinc-600 mt-0.5">eBay / Swappa / OLX</p>
+                      <p className="text-[10px] text-zinc-600 mt-1">eBay / Swappa / OLX</p>
                     </div>
                     <div className="rounded-lg bg-zinc-800/60 border border-zinc-700/50 p-4 text-center">
                       <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Scrap Parts Value</p>
                       <p className="text-2xl font-bold text-zinc-300">
-                        ${ecoResult.valuationSummary.estimatedScrapCashUsd}
-                      </p>
-                      <p className="text-sm font-medium text-zinc-400 mt-0.5">
                         ₹{ecoResult.valuationSummary.estimatedScrapCashInr?.toLocaleString("en-IN")}
                       </p>
-                      <p className="text-[10px] text-zinc-600 mt-0.5">raw components only</p>
+                      <p className="text-[10px] text-zinc-600 mt-1">raw components only</p>
                     </div>
                   </div>
 

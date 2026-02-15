@@ -1,11 +1,6 @@
 // ─── Device Condition Toggles ────────────────────────────────────────────────
-export type DeviceCondition =
-  | "Screen Broken"
-  | "Bad Battery"
-  | "Touch Broken"
-  | "Camera Dead"
-  | "Speaker Broken"
-  | "No Charging Port";
+// Dynamic per device / appliance type — kept as plain string for flexibility
+export type DeviceCondition = string;
 
 // ─── Research Mode ───────────────────────────────────────────────────────────
 export type ResearchMode = "Standard" | "Teardown/Harvest";
