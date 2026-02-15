@@ -16,6 +16,9 @@ from schemas import (
     ProjectRecommendation,
     StepByStepInstruction,
     ScrapeResponse,
+    EcoValuation,
+    ValuationSummary,
+    TradeInOffer,
 )
 from query_generator import generate_queries
 from scrapers.youtube_scraper import YouTubeScraper
@@ -27,6 +30,7 @@ from scrapers.creative_scraper import CreativeScraper
 from scrapers.ddgs_helper import ddgs_search
 from ai_fallback import generate_ai_recommendations
 from creative_ai import generate_creative_builds
+from eco_exchange import generate_eco_valuation
 
 logger = logging.getLogger(__name__)
 
@@ -244,23 +248,48 @@ async def run_pipeline(
             return []
 
     all_tasks.append(_generate_ai_creative())
+
+    # Also run Eco-Exchange Valuation Engine concurrently
+    async def _generate_eco_valuation():
+        try:
+            all_thoughts.append(
+                _thought("Activating Eco-Exchange Valuation Engine for trade-in offers...")
+            )
+            result = await generate_eco_valuation(
+                device=device,
+                device_type=device_type,
+                conditions=conditions,
+                ram_gb=ram_gb,
+                storage_gb=storage_gb,
+            )
+            return result
+        except Exception as e:
+            logger.warning("Eco valuation failed: %s", e)
+            return None
+
+    all_tasks.append(_generate_eco_valuation())
     all_results = await asyncio.gather(*all_tasks, return_exceptions=True)
 
-    # Split: first N are scraper results, second-to-last is disassembly URL, last is AI creative
-    results = all_results[:-2]
-    disasm_result = all_results[-2]
-    ai_creative_result = all_results[-1]
+    # Split: first N are scraper results, then disassembly URL, AI creative, eco valuation
+    results = all_results[:-3]
+    disasm_result = all_results[-3]
+    ai_creative_result = all_results[-2]
+    eco_valuation_result = all_results[-1]
     disassembly_url = disasm_result if isinstance(disasm_result, str) else ""
     ai_creative_projects = ai_creative_result if isinstance(ai_creative_result, list) else []
+    eco_raw = eco_valuation_result if isinstance(eco_valuation_result, dict) else None
 
     logger.info(
-        "Pipeline gather: %d total results, disasm=%s, ai_creative=%d items",
+        "Pipeline gather: %d total results, disasm=%s, ai_creative=%d items, eco=%s",
         len(all_results),
         type(disasm_result).__name__,
         len(ai_creative_projects),
+        "yes" if eco_raw else "no",
     )
     if isinstance(ai_creative_result, Exception):
         logger.error("AI creative builds returned exception: %s", ai_creative_result)
+    if isinstance(eco_valuation_result, Exception):
+        logger.error("Eco valuation returned exception: %s", eco_valuation_result)
 
     # ── Step 3: Collect results ───────────────────────────────────────────
     all_projects: list[dict] = []
@@ -400,6 +429,36 @@ async def run_pipeline(
     for qs in queries_by_platform.values():
         flat_queries.extend(qs)
 
+    # ── Build Eco Valuation model ─────────────────────────────────────────
+    eco_valuation: EcoValuation | None = None
+    if eco_raw:
+        try:
+            vs = eco_raw.get("valuation_summary", {})
+            offers_raw = eco_raw.get("trade_in_offers", [])
+            eco_valuation = EcoValuation(
+                valuationSummary=ValuationSummary(
+                    deviceName=vs.get("device_name", device),
+                    estimatedScrapCashUsd=vs.get("estimated_scrap_cash_usd", 0),
+                    ecoMessage=vs.get("eco_message", ""),
+                ),
+                tradeInOffers=[
+                    TradeInOffer(
+                        partner=o.get("partner", "Unknown"),
+                        offerType=o.get("offer_type", "Discount Coupon"),
+                        headline=o.get("headline", ""),
+                        monetaryValueCap=o.get("monetary_value_cap", ""),
+                        reasoning=o.get("reasoning", ""),
+                    )
+                    for o in offers_raw
+                    if isinstance(o, dict)
+                ],
+            )
+            all_thoughts.append(
+                _thought(f"Eco-Exchange valued device at ${vs.get('estimated_scrap_cash_usd', 0)} scrap + {len(offers_raw)} partner offers.")
+            )
+        except Exception as e:
+            logger.warning("Failed to parse eco valuation: %s", e)
+
     return ScrapeResponse(
         thoughts=all_thoughts,
         recommendations=recommendations,
@@ -410,4 +469,5 @@ async def run_pipeline(
             f" — Mode: {mode}"
         ),
         disassemblyUrl=disassembly_url,
+        ecoValuation=eco_valuation,
     )

@@ -40,12 +40,38 @@ class ThoughtLogEntry(BaseModel):
     message: str
 
 
+class TradeInOffer(BaseModel):
+    partner: str
+    offerType: str = Field(alias="offer_type", default="Discount Coupon")
+    headline: str
+    monetaryValueCap: str = Field(alias="monetary_value_cap", default="")
+    reasoning: str = ""
+
+    class Config:
+        populate_by_name = True
+
+
+class ValuationSummary(BaseModel):
+    deviceName: str = Field(alias="device_name", default="")
+    estimatedScrapCashUsd: int | float = Field(alias="estimated_scrap_cash_usd", default=0)
+    ecoMessage: str = Field(alias="eco_message", default="")
+
+    class Config:
+        populate_by_name = True
+
+
+class EcoValuation(BaseModel):
+    valuationSummary: ValuationSummary | None = None
+    tradeInOffers: list[TradeInOffer] = []
+
+
 class ScrapeResponse(BaseModel):
     thoughts: list[ThoughtLogEntry]
     recommendations: list[ProjectRecommendation]
     searchQueries: list[str]
     deviceSummary: str
     disassemblyUrl: str = ""
+    ecoValuation: EcoValuation | None = None
 
 
 # ─── Schema for ScrapeGraphAI structured extraction ──────────────────────────

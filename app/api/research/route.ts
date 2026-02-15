@@ -6,6 +6,7 @@ import type {
   MockSearchResult,
   ProjectRecommendation,
   DeviceCondition,
+  EcoValuation,
 } from "@/types";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -625,6 +626,7 @@ function normalizeScraperResponse(data: {
   searchQueries?: string[];
   deviceSummary?: string;
   disassemblyUrl?: string;
+  ecoValuation?: EcoValuation | null;
 }): ResearchResponse {
   const recommendations: ProjectRecommendation[] = (
     data.recommendations ?? []
@@ -660,6 +662,7 @@ function normalizeScraperResponse(data: {
     searchQueries: data.searchQueries ?? [],
     deviceSummary: data.deviceSummary ?? "",
     disassemblyUrl: data.disassemblyUrl ?? "",
+    ecoValuation: data.ecoValuation ?? null,
   };
 }
 

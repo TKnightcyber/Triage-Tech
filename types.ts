@@ -56,6 +56,26 @@ export interface ThoughtLogEntry {
   message: string;
 }
 
+// ─── Eco-Exchange Valuation ──────────────────────────────────────────────────
+export interface TradeInOffer {
+  partner: string;
+  offerType: string;
+  headline: string;
+  monetaryValueCap: string;
+  reasoning: string;
+}
+
+export interface ValuationSummary {
+  deviceName: string;
+  estimatedScrapCashUsd: number;
+  ecoMessage: string;
+}
+
+export interface EcoValuation {
+  valuationSummary: ValuationSummary | null;
+  tradeInOffers: TradeInOffer[];
+}
+
 // ─── Full API Response ───────────────────────────────────────────────────────
 export interface ResearchResponse {
   thoughts: ThoughtLogEntry[];
@@ -63,6 +83,7 @@ export interface ResearchResponse {
   searchQueries: string[];
   deviceSummary: string;
   disassemblyUrl?: string;
+  ecoValuation?: EcoValuation | null;
 }
 
 // ─── Simulated Tavily search result item ─────────────────────────────────────
