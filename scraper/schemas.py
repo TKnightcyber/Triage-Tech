@@ -45,6 +45,7 @@ class TradeInOffer(BaseModel):
     offerType: str = Field(alias="offer_type", default="Discount Coupon")
     headline: str
     monetaryValueCap: str = Field(alias="monetary_value_cap", default="")
+    couponUrl: str = Field(alias="coupon_url", default="")
     reasoning: str = ""
 
     class Config:
@@ -53,6 +54,8 @@ class TradeInOffer(BaseModel):
 
 class ValuationSummary(BaseModel):
     deviceName: str = Field(alias="device_name", default="")
+    conditionGrade: str = Field(alias="condition_grade", default="C")
+    estimatedResaleUsd: int | float = Field(alias="estimated_resale_usd", default=0)
     estimatedScrapCashUsd: int | float = Field(alias="estimated_scrap_cash_usd", default=0)
     ecoMessage: str = Field(alias="eco_message", default="")
 
@@ -63,6 +66,15 @@ class ValuationSummary(BaseModel):
 class EcoValuation(BaseModel):
     valuationSummary: ValuationSummary | None = None
     tradeInOffers: list[TradeInOffer] = []
+
+
+class EcoValuationRequest(BaseModel):
+    """Standalone eco-valuation request (for landing page)."""
+    deviceName: str
+    conditions: list[str] = []
+    deviceType: str = "Smartphone"
+    ramGB: int = 0
+    storageGB: int = 0
 
 
 class ScrapeResponse(BaseModel):

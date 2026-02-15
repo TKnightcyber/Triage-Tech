@@ -325,7 +325,15 @@ export default function Home() {
   const [visibleThoughts, setVisibleThoughts] = useState<ThoughtLogEntry[]>([]);
   const [response, setResponse] = useState<ResearchResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"software" | "creative" | "hardware" | "eco">("software");
+  const [activeTab, setActiveTab] = useState<"software" | "creative" | "hardware">("software");
+
+  // Eco Exchange State (landing page)
+  const [ecoDevice, setEcoDevice] = useState("");
+  const [ecoConditions, setEcoConditions] = useState<DeviceCondition[]>([]);
+  const [ecoDeviceType, setEcoDeviceType] = useState<DeviceType>("Smartphone");
+  const [ecoLoading, setEcoLoading] = useState(false);
+  const [ecoResult, setEcoResult] = useState<EcoValuation | null>(null);
+  const [ecoError, setEcoError] = useState<string | null>(null);
 
   const terminalRef = useRef<HTMLDivElement>(null);
   const thoughtIndexRef = useRef(0);
@@ -344,6 +352,50 @@ export default function Home() {
     setConditions((prev) =>
       prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]
     );
+  };
+
+  // Eco condition toggle
+  const toggleEcoCondition = (c: DeviceCondition) => {
+    setEcoConditions((prev) =>
+      prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]
+    );
+  };
+
+  // Eco Exchange submit
+  const handleEcoSubmit = async () => {
+    if (!ecoDevice.trim()) return;
+    setEcoLoading(true);
+    setEcoError(null);
+    setEcoResult(null);
+
+    try {
+      const res = await fetch("/api/eco-valuation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          deviceName: ecoDevice,
+          conditions: ecoConditions,
+          deviceType: ecoDeviceType,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Valuation failed. Please try again.");
+
+      const data: EcoValuation = await res.json();
+      setEcoResult(data);
+    } catch (err) {
+      setEcoError(err instanceof Error ? err.message : "Unknown error.");
+    } finally {
+      setEcoLoading(false);
+    }
+  };
+
+  const handleEcoReset = () => {
+    setEcoDevice("");
+    setEcoConditions([]);
+    setEcoDeviceType("Smartphone");
+    setEcoResult(null);
+    setEcoError(null);
   };
 
   // Animate thoughts one-by-one
@@ -429,7 +481,6 @@ export default function Home() {
     response?.recommendations.filter((r) => r.type === "Hardware Harvest") ?? [];
   const creativeProjects =
     response?.recommendations.filter((r) => r.type === "Creative Build") ?? [];
-  const ecoValuation = response?.ecoValuation ?? null;
 
   // Phase label
   const phaseLabel: Record<ResearchPhase, string> = {
@@ -647,6 +698,273 @@ export default function Home() {
           </div>
         )}
 
+        {/* ═══════════════════════════════════════════════════════════════════
+            ECO EXCHANGE SECTION — LANDING PAGE
+            ═══════════════════════════════════════════════════════════════════ */}
+        {phase === "idle" && (
+          <div className="max-w-2xl mx-auto mt-16 space-y-6">
+            {/* Divider */}
+            <div className="flex items-center gap-4">
+              <div className="flex-1 h-px bg-zinc-800" />
+              <span className="text-xs text-zinc-500 uppercase tracking-widest font-medium">or</span>
+              <div className="flex-1 h-px bg-zinc-800" />
+            </div>
+
+            {/* Eco Exchange Header */}
+            <div className="text-center space-y-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-medium">
+                <DollarSign className="w-3.5 h-3.5" />
+                Eco Exchange
+              </div>
+              <h3 className="text-2xl font-bold tracking-tight">
+                Not a tinkerer? <span className="text-green-400">Get paid instead.</span>
+              </h3>
+              <p className="text-zinc-400 text-sm">
+                Enter your device, select its condition, and get instant trade-in offers & resale estimates.
+              </p>
+            </div>
+
+            {/* Eco Device Input */}
+            <div className="relative">
+              <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
+              <input
+                type="text"
+                value={ecoDevice}
+                onChange={(e) => setEcoDevice(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleEcoSubmit()}
+                placeholder="What device are you trading in? (e.g., iPhone 13, MacBook Air M1)"
+                className="w-full bg-zinc-900 border border-zinc-700 rounded-xl pl-12 pr-4 py-3.5 text-lg placeholder:text-zinc-600 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500/50 transition-all"
+              />
+            </div>
+
+            {/* Device Type */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-400 uppercase tracking-wider">
+                Device Type
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {DEVICE_TYPES.map(({ value, label, icon }) => (
+                  <button
+                    key={value}
+                    onClick={() => setEcoDeviceType(value)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
+                      ecoDeviceType === value
+                        ? "bg-green-500/15 border-green-500/40 text-green-400"
+                        : "bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300"
+                    }`}
+                  >
+                    {icon}
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Eco Condition Selector */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-400 uppercase tracking-wider">
+                What&apos;s wrong with it?
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {CONDITIONS.map(({ label, icon, activeIcon }) => {
+                  const active = ecoConditions.includes(label);
+                  return (
+                    <button
+                      key={label}
+                      onClick={() => toggleEcoCondition(label)}
+                      className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all border ${
+                        active
+                          ? "bg-red-500/15 border-red-500/40 text-red-400"
+                          : "bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300"
+                      }`}
+                    >
+                      {active ? activeIcon : icon}
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              {ecoConditions.length === 0 && (
+                <p className="text-xs text-zinc-600">
+                  Leave empty if the device is just old but fully working.
+                </p>
+              )}
+            </div>
+
+            {/* Eco Submit */}
+            <button
+              onClick={handleEcoSubmit}
+              disabled={!ecoDevice.trim() || ecoLoading}
+              className="w-full py-3.5 rounded-xl font-semibold text-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-green-600 hover:bg-green-500 text-white"
+            >
+              {ecoLoading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Evaluating device...
+                </span>
+              ) : (
+                <span className="flex items-center justify-center gap-2">
+                  <DollarSign className="w-5 h-5" />
+                  Get Trade-In Value
+                </span>
+              )}
+            </button>
+
+            {/* Eco Error */}
+            {ecoError && (
+              <div className="text-center py-4">
+                <p className="text-sm text-red-400">{ecoError}</p>
+              </div>
+            )}
+
+            {/* ═══ Eco Results ═══ */}
+            {ecoResult && ecoResult.valuationSummary && (
+              <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                {/* Condition Grade + Values */}
+                <div className="rounded-xl border border-green-500/30 bg-gradient-to-br from-green-950/30 to-zinc-900/50 p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-lg font-bold text-green-400">
+                        {ecoResult.valuationSummary.deviceName}
+                      </h4>
+                      <p className="text-xs text-zinc-500 mt-0.5">AI Condition Assessment</p>
+                    </div>
+                    {/* Condition Grade Badge */}
+                    <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-2xl font-black border-2 ${
+                      ecoResult.valuationSummary.conditionGrade === "A" ? "border-emerald-400 text-emerald-400 bg-emerald-500/10" :
+                      ecoResult.valuationSummary.conditionGrade === "B" ? "border-green-400 text-green-400 bg-green-500/10" :
+                      ecoResult.valuationSummary.conditionGrade === "C" ? "border-yellow-400 text-yellow-400 bg-yellow-500/10" :
+                      ecoResult.valuationSummary.conditionGrade === "D" ? "border-orange-400 text-orange-400 bg-orange-500/10" :
+                      "border-red-400 text-red-400 bg-red-500/10"
+                    }`}>
+                      {ecoResult.valuationSummary.conditionGrade}
+                    </div>
+                  </div>
+
+                  {/* Value Cards */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-lg bg-zinc-800/60 border border-zinc-700/50 p-4 text-center">
+                      <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Can Sell For</p>
+                      <p className="text-2xl font-bold text-green-400">
+                        ${ecoResult.valuationSummary.estimatedResaleUsd}
+                      </p>
+                      <p className="text-[10px] text-zinc-600 mt-0.5">eBay / Swappa / FB Marketplace</p>
+                    </div>
+                    <div className="rounded-lg bg-zinc-800/60 border border-zinc-700/50 p-4 text-center">
+                      <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Scrap Parts Value</p>
+                      <p className="text-2xl font-bold text-zinc-300">
+                        ${ecoResult.valuationSummary.estimatedScrapCashUsd}
+                      </p>
+                      <p className="text-[10px] text-zinc-600 mt-0.5">raw components only</p>
+                    </div>
+                  </div>
+
+                  {/* Eco message */}
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-green-900/20 border border-green-600/20">
+                    <Leaf className="w-4 h-4 text-green-500 flex-shrink-0" />
+                    <p className="text-xs text-green-300">
+                      {ecoResult.valuationSummary.ecoMessage}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Trade-In Offer Cards — CLICKABLE */}
+                <div>
+                  <h4 className="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <Gift className="w-4 h-4 text-green-400" />
+                    Trade-In Offers
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {ecoResult.tradeInOffers.map((offer, i) => {
+                      const isBest = i === 0;
+                      const isCash = offer.offerType === "Cash Transfer";
+                      const borderColor = isBest
+                        ? "border-yellow-500/40 bg-yellow-950/20 hover:border-yellow-500/60"
+                        : isCash
+                          ? "border-zinc-500/30 bg-zinc-900/30 hover:border-zinc-500/50"
+                          : "border-green-500/30 bg-green-950/20 hover:border-green-500/50";
+                      const tagColor = isBest
+                        ? "bg-yellow-500/20 text-yellow-400"
+                        : isCash
+                          ? "bg-zinc-500/20 text-zinc-400"
+                          : "bg-green-500/20 text-green-400";
+
+                      const CardWrapper = offer.couponUrl ? "a" : "div";
+                      const linkProps = offer.couponUrl
+                        ? { href: offer.couponUrl, target: "_blank" as const, rel: "noopener noreferrer" }
+                        : {};
+
+                      return (
+                        <CardWrapper
+                          key={i}
+                          {...linkProps}
+                          className={`block rounded-xl border p-4 space-y-3 transition-all duration-200 cursor-pointer hover:scale-[1.03] hover:shadow-lg hover:shadow-green-500/5 ${borderColor} ${offer.couponUrl ? "group" : ""}`}
+                        >
+                          {isBest && (
+                            <div className="flex items-center gap-1.5">
+                              <TrendingUp className="w-3.5 h-3.5 text-yellow-400" />
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-yellow-400">
+                                Best Value
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2">
+                            {isCash ? (
+                              <DollarSign className="w-5 h-5 text-zinc-400" />
+                            ) : (
+                              <Gift className="w-5 h-5 text-green-400" />
+                            )}
+                            <div>
+                              <p className="text-sm font-bold text-zinc-200">
+                                {offer.partner}
+                              </p>
+                              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${tagColor}`}>
+                                {offer.offerType}
+                              </span>
+                            </div>
+                          </div>
+                          <p className="text-base font-semibold text-zinc-100">
+                            {offer.headline}
+                          </p>
+                          <div className="flex items-center gap-1.5">
+                            <Tag className="w-3 h-3 text-zinc-500" />
+                            <span className="text-xs text-zinc-400">
+                              {offer.monetaryValueCap}
+                            </span>
+                          </div>
+                          <p className="text-xs text-zinc-500 leading-relaxed">
+                            {offer.reasoning}
+                          </p>
+                          {offer.couponUrl && (
+                            <div className="flex items-center gap-1.5 text-xs text-green-400 group-hover:text-green-300 transition-colors pt-1">
+                              <ExternalLink className="w-3 h-3" />
+                              <span>Claim this offer →</span>
+                            </div>
+                          )}
+                        </CardWrapper>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Disclaimer + Reset */}
+                <div className="flex items-center justify-between pt-2">
+                  <p className="text-[10px] text-zinc-600">
+                    * AI-generated estimates. Actual values may vary by retailer and condition assessment.
+                  </p>
+                  <button
+                    onClick={handleEcoReset}
+                    className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    New valuation
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* === SCREEN 2: Live Research Terminal === */}
         {(phase === "searching" ||
           phase === "analyzing" ||
@@ -814,17 +1132,6 @@ export default function Home() {
                 <Wrench className="w-4 h-4" />
                 Hardware Harvest ({hardwareProjects.length})
               </button>
-              <button
-                onClick={() => setActiveTab("eco")}
-                className={`px-4 py-2.5 text-sm font-medium flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
-                  activeTab === "eco"
-                    ? "border-green-400 text-green-400"
-                    : "border-transparent text-zinc-500 hover:text-zinc-300"
-                }`}
-              >
-                <DollarSign className="w-4 h-4" />
-                Eco Exchange {ecoValuation ? "✓" : ""}
-              </button>
             </div>
 
             {/* Tab Content */}
@@ -895,120 +1202,6 @@ export default function Home() {
                       {hardwareProjects.map((p) => (
                         <ProjectCard key={p.id} project={p} />
                       ))}
-                    </div>
-                  )}
-                </>
-              )}
-
-              {/* Eco Exchange Tab */}
-              {activeTab === "eco" && (
-                <>
-                  <div className="flex items-start gap-3 p-3 rounded-lg bg-green-950/20 border border-green-500/20 text-xs text-zinc-400">
-                    <Leaf className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
-                    <p>
-                      <span className="text-green-400 font-medium">Eco-Exchange Valuation</span> — don&apos;t want to tinker?
-                      Trade in your broken device for partner coupons, store credits, or instant cash.
-                      Partner rewards are always worth more than raw scrap value.
-                    </p>
-                  </div>
-
-                  {!ecoValuation ? (
-                    <p className="text-sm text-zinc-500 py-8 text-center">
-                      Eco-Exchange valuation is being generated... If this persists, the AI service may be unavailable.
-                    </p>
-                  ) : (
-                    <div className="space-y-4">
-                      {/* Valuation Summary Card */}
-                      {ecoValuation.valuationSummary && (
-                        <div className="rounded-xl border border-green-500/30 bg-green-950/20 p-5 space-y-3">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h3 className="text-lg font-bold text-green-400">
-                                {ecoValuation.valuationSummary.deviceName}
-                              </h3>
-                              <p className="text-xs text-zinc-500">Scrap Value Estimate</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-3xl font-bold text-green-400">
-                                ${ecoValuation.valuationSummary.estimatedScrapCashUsd}
-                              </p>
-                              <p className="text-xs text-zinc-500">raw parts value</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 p-2.5 rounded-lg bg-green-900/20 border border-green-600/20">
-                            <Leaf className="w-4 h-4 text-green-500 flex-shrink-0" />
-                            <p className="text-xs text-green-300">
-                              {ecoValuation.valuationSummary.ecoMessage}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Trade-In Offer Cards */}
-                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-                        {ecoValuation.tradeInOffers.map((offer, i) => {
-                          const isBest = i === 0;
-                          const isCash = offer.offerType === "Cash Transfer";
-                          const borderColor = isBest
-                            ? "border-yellow-500/40 bg-yellow-950/20"
-                            : isCash
-                              ? "border-zinc-500/30 bg-zinc-900/30"
-                              : "border-green-500/30 bg-green-950/20";
-                          const tagColor = isBest
-                            ? "bg-yellow-500/20 text-yellow-400"
-                            : isCash
-                              ? "bg-zinc-500/20 text-zinc-400"
-                              : "bg-green-500/20 text-green-400";
-
-                          return (
-                            <div
-                              key={i}
-                              className={`rounded-xl border p-4 space-y-3 transition-all hover:scale-[1.02] ${borderColor}`}
-                            >
-                              {isBest && (
-                                <div className="flex items-center gap-1.5">
-                                  <TrendingUp className="w-3.5 h-3.5 text-yellow-400" />
-                                  <span className="text-[10px] font-bold uppercase tracking-wider text-yellow-400">
-                                    Best Value
-                                  </span>
-                                </div>
-                              )}
-                              <div className="flex items-center gap-2">
-                                {isCash ? (
-                                  <DollarSign className="w-5 h-5 text-zinc-400" />
-                                ) : (
-                                  <Gift className="w-5 h-5 text-green-400" />
-                                )}
-                                <div>
-                                  <p className="text-sm font-bold text-zinc-200">
-                                    {offer.partner}
-                                  </p>
-                                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${tagColor}`}>
-                                    {offer.offerType}
-                                  </span>
-                                </div>
-                              </div>
-                              <p className="text-base font-semibold text-zinc-100">
-                                {offer.headline}
-                              </p>
-                              <div className="flex items-center gap-1.5">
-                                <Tag className="w-3 h-3 text-zinc-500" />
-                                <span className="text-xs text-zinc-400">
-                                  {offer.monetaryValueCap}
-                                </span>
-                              </div>
-                              <p className="text-xs text-zinc-500 leading-relaxed">
-                                {offer.reasoning}
-                              </p>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* Disclaimer */}
-                      <p className="text-[10px] text-zinc-600 text-center pt-2">
-                        * Valuations are AI-generated estimates. Actual trade-in values may vary by retailer and condition assessment.
-                      </p>
                     </div>
                   )}
                 </>

@@ -62,11 +62,14 @@ export interface TradeInOffer {
   offerType: string;
   headline: string;
   monetaryValueCap: string;
+  couponUrl: string;
   reasoning: string;
 }
 
 export interface ValuationSummary {
   deviceName: string;
+  conditionGrade: string;
+  estimatedResaleUsd: number;
   estimatedScrapCashUsd: number;
   ecoMessage: string;
 }

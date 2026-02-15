@@ -438,6 +438,8 @@ async def run_pipeline(
             eco_valuation = EcoValuation(
                 valuationSummary=ValuationSummary(
                     deviceName=vs.get("device_name", device),
+                    conditionGrade=vs.get("condition_grade", "C"),
+                    estimatedResaleUsd=vs.get("estimated_resale_usd", 0),
                     estimatedScrapCashUsd=vs.get("estimated_scrap_cash_usd", 0),
                     ecoMessage=vs.get("eco_message", ""),
                 ),
@@ -447,6 +449,7 @@ async def run_pipeline(
                         offerType=o.get("offer_type", "Discount Coupon"),
                         headline=o.get("headline", ""),
                         monetaryValueCap=o.get("monetary_value_cap", ""),
+                        couponUrl=o.get("coupon_url", ""),
                         reasoning=o.get("reasoning", ""),
                     )
                     for o in offers_raw
