@@ -46,18 +46,22 @@ async def generate_ai_recommendations(
     device: str,
     conditions: list[str],
     mode: str,
+    condition_notes: str = "",
 ) -> list[dict]:
     """
     Call Groq LLM to generate project recommendations when scraping fails.
     Returns a list of project dicts compatible with the pipeline.
     """
     cond_text = ", ".join(conditions) if conditions else "no reported issues"
+    notes_text = f"\nUser's description of condition: {condition_notes}\n" if condition_notes else ""
     user_prompt = (
         f"Device: {device}\n"
         f"Conditions: {cond_text}\n"
+        f"{notes_text}"
         f"Mode: {mode}\n\n"
         f"Generate creative second-life project ideas for this device. "
         f"Remember the device has these broken/damaged parts: {cond_text}. "
+        f"{'The user also describes: ' + condition_notes + '. ' if condition_notes else ''}"
         f"All projects must work AROUND these limitations.\n"
         f"{'Focus on teardown and component harvesting projects.' if mode == 'Teardown/Harvest' else 'Focus on software repurposing and creative reuse projects.'}\n"
         f"Respond with a JSON array of project objects only."

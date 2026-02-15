@@ -13,6 +13,7 @@ class ScrapeRequest(BaseModel):
     deviceType: str = "Smartphone"
     ramGB: int = 0
     storageGB: int = 0
+    conditionNotes: str = ""
 
 
 class StepByStepInstruction(BaseModel):

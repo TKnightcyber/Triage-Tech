@@ -175,6 +175,7 @@ async def run_pipeline(
     device_type: str = "Smartphone",
     ram_gb: int = 0,
     storage_gb: int = 0,
+    condition_notes: str = "",
 ) -> ScrapeResponse:
     """Main entry point: orchestrate all scrapers and return structured results."""
 
@@ -182,7 +183,7 @@ async def run_pipeline(
     all_thoughts.append(_thought(f"Analyzing {device} ({device_type}) specs..."))
 
     # ── Step 1: Generate queries ──────────────────────────────────────────
-    query_data = generate_queries(device, conditions, mode)
+    query_data = generate_queries(device, conditions, mode, condition_notes)
     all_thoughts.extend(query_data["thoughts"])
     queries_by_platform: dict[str, list[str]] = query_data["queries"]
 
@@ -331,7 +332,7 @@ async def run_pipeline(
                 "No web results found. Activating AI to generate project recommendations..."
             )
         )
-        ai_projects = await generate_ai_recommendations(device, conditions, mode)
+        ai_projects = await generate_ai_recommendations(device, conditions, mode, condition_notes)
         if ai_projects:
             all_thoughts.append(
                 _thought(

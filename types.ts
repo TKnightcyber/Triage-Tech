@@ -21,6 +21,7 @@ export interface ResearchRequest {
   deviceType?: DeviceType;
   ramGB?: number;
   storageGB?: number;
+  conditionNotes?: string;
 }
 
 // ─── Step-by-step instruction (from scraper) ─────────────────────────────────

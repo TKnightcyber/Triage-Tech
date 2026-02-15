@@ -17,6 +17,7 @@ def generate_queries(
     device: str,
     conditions: list[str],
     mode: str,
+    condition_notes: str = "",
 ) -> dict:
     """
     Returns {
@@ -107,6 +108,14 @@ def generate_queries(
         reddit.append(f"{device} second life repurpose DIY project")
         github.append(f"{device} repurpose project")
         general.append(f"{device} repurpose upcycle project ideas 2024")
+
+    # ── Condition notes — user free-text description ──────────────────────
+
+    if condition_notes and condition_notes.strip():
+        notes = condition_notes.strip()
+        thoughts.append(_thought(f"User described condition: \"{notes[:80]}{'...' if len(notes) > 80 else ''}\". Adding targeted queries..."))
+        general.append(f"{device} {notes[:60]} repurpose project")
+        youtube.append(f"{device} {notes[:60]} DIY fix reuse tutorial")
         general.append(f"{device} second life DIY project github")
 
     # ── Harvest / teardown mode ───────────────────────────────────────────

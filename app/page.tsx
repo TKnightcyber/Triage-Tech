@@ -438,6 +438,7 @@ export default function Home() {
   const [deviceType, setDeviceType] = useState<DeviceType>("Smartphone");
   const [ramGB, setRamGB] = useState(0);
   const [storageGB, setStorageGB] = useState(0);
+  const [conditionNotes, setConditionNotes] = useState("");
 
   // Research State
   const [phase, setPhase] = useState<ResearchPhase>("idle");
@@ -716,6 +717,10 @@ export default function Home() {
     } else {
       handleDeviceTypeChange("Other");
     }
+    // Auto-fill condition notes from AI vision
+    if (mainIdentifyResult.visualCondition) {
+      setConditionNotes(`AI detected: ${mainIdentifyResult.visualCondition}`);
+    }
     setMainIdentifyMode(false);
     setMainIdentifyResult(null);
     setMainIdentifyImages([]);
@@ -827,7 +832,7 @@ export default function Home() {
       const res = await fetch("/api/research", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deviceName, conditions, mode, deviceType, ramGB, storageGB }),
+        body: JSON.stringify({ deviceName, conditions, mode, deviceType, ramGB, storageGB, conditionNotes }),
       });
 
       if (!res.ok) {
@@ -858,6 +863,7 @@ export default function Home() {
     setApplianceType(null);
     setRamGB(0);
     setStorageGB(0);
+    setConditionNotes("");
     setResponse(null);
     setError(null);
     setVisibleThoughts([]);
@@ -1247,6 +1253,25 @@ export default function Home() {
                   Select an appliance type above to see relevant conditions.
                 </p>
               ) : null}
+              {currentConditions.length > 0 && conditions.length === 0 && (
+                <p className="text-xs text-zinc-600">
+                  Leave empty if the device is just old but fully working.
+                </p>
+              )}
+            </div>
+
+            {/* Describe the Condition (free text) */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-400 uppercase tracking-wider">
+                Describe the condition (optional)
+              </label>
+              <textarea
+                value={conditionNotes}
+                onChange={(e) => setConditionNotes(e.target.value)}
+                placeholder="E.g., 3 years old, scratches on back, slight burn-in on screen, still boots but slow..."
+                rows={3}
+                className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-sm placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/50 transition-all resize-none"
+              />
             </div>
 
             {/* Mode Switch */}

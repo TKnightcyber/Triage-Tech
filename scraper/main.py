@@ -95,6 +95,7 @@ async def scrape(request: ScrapeRequest):
                 device_type=request.deviceType,
                 ram_gb=request.ramGB,
                 storage_gb=request.storageGB,
+                condition_notes=request.conditionNotes,
             ),
             timeout=SCRAPER_TIMEOUT,
         )
