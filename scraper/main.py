@@ -21,7 +21,7 @@ from contextlib import asynccontextmanager
 from config import GROQ_API_KEY, SCRAPER_TIMEOUT
 from schemas import ScrapeRequest, ScrapeResponse, EcoValuationRequest, EcoValuation, ValuationSummary, TradeInOffer
 from pipeline import run_pipeline
-from eco_exchange import generate_eco_valuation
+from eco_exchange import generate_eco_valuation, analyze_device_images
 
 logging.basicConfig(
     level=logging.INFO,
@@ -120,12 +120,14 @@ async def eco_valuation(request: EcoValuationRequest):
     """
     Standalone Eco-Exchange Valuation endpoint.
     Called from the landing page to get trade-in offers without running full scrape pipeline.
+    Optionally accepts base64 images for AI vision-based condition analysis.
     """
     logger.info(
-        "Eco valuation request: device=%s conditions=%s notes=%s",
+        "Eco valuation request: device=%s conditions=%s notes=%s images=%d",
         request.deviceName,
         request.conditions,
         request.additionalNotes[:50] if request.additionalNotes else "",
+        len(request.images) if request.images else 0,
     )
 
     if not GROQ_API_KEY:
@@ -136,6 +138,43 @@ async def eco_valuation(request: EcoValuationRequest):
 
     USD_TO_INR = 83.5  # approximate conversion rate
 
+    # ── Vision Analysis (if images provided) ──────────────────────────────
+    vision_notes = ""
+    if request.images and len(request.images) > 0:
+        try:
+            vision_result = await asyncio.wait_for(
+                analyze_device_images(
+                    images_base64=request.images,
+                    device_name=request.deviceName,
+                ),
+                timeout=30,
+            )
+            if vision_result:
+                # Merge vision findings into the additional notes
+                summary = vision_result.get("visual_condition_summary", "")
+                issues = vision_result.get("detected_issues", [])
+                grade = vision_result.get("cosmetic_grade", "")
+                confidence = vision_result.get("confidence", "")
+
+                vision_notes = f"\n[AI Vision Analysis (confidence: {confidence})]"
+                if summary:
+                    vision_notes += f"\nVisual Assessment: {summary}"
+                if issues:
+                    vision_notes += f"\nDetected Issues: {', '.join(issues)}"
+                if grade:
+                    vision_notes += f"\nCosmetic Grade: {grade}"
+
+                logger.info("Vision analysis merged: grade=%s, %d issues", grade, len(issues))
+        except asyncio.TimeoutError:
+            logger.warning("Vision analysis timed out, continuing without it")
+        except Exception as e:
+            logger.warning("Vision analysis failed, continuing without it: %s", e)
+
+    # Combine user notes with vision analysis
+    combined_notes = (request.additionalNotes or "").strip()
+    if vision_notes:
+        combined_notes = combined_notes + "\n" + vision_notes if combined_notes else vision_notes
+
     try:
         result = await asyncio.wait_for(
             generate_eco_valuation(
@@ -144,7 +183,7 @@ async def eco_valuation(request: EcoValuationRequest):
                 conditions=request.conditions,
                 ram_gb=request.ramGB,
                 storage_gb=request.storageGB,
-                additional_notes=request.additionalNotes,
+                additional_notes=combined_notes,
             ),
             timeout=60,
         )

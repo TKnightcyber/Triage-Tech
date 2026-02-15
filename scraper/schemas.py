@@ -72,6 +72,7 @@ class EcoValuationRequest(BaseModel):
     deviceType: str = "Smartphone"
     ramGB: int = 0
     storageGB: int = 0
+    images: list[str] = Field(default_factory=list, description="Base64-encoded device images for AI vision analysis")
 
 
 class ScrapeResponse(BaseModel):

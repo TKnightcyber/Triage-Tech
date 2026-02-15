@@ -10,13 +10,16 @@ from __future__ import annotations
 import json
 import logging
 
+import base64
+
 import httpx
 
-from config import GROQ_API_KEY, GROQ_MODEL
+from config import GROQ_API_KEY, GROQ_MODEL, GROQ_VISION_MODEL
 
 logger = logging.getLogger(__name__)
 
 _MODEL = GROQ_MODEL.replace("groq/", "")
+_VISION_MODEL = GROQ_VISION_MODEL
 GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 SYSTEM_PROMPT = r"""You are the "Eco-Exchange Valuation Engine," a specialized AI designed to bridge the gap between broken consumer electronics and retail partnerships.
@@ -205,4 +208,122 @@ async def generate_eco_valuation(
 
     except Exception as e:
         logger.exception("Eco valuation generation failed: %s", e)
+        return None
+
+
+# ─── Vision-based device condition analysis ──────────────────────────────────
+
+VISION_PROMPT = """You are a device condition analyst. Analyze the image(s) of this device and provide a detailed condition report.
+
+**YOUR TASK:**
+Look at the device image carefully and describe:
+1. **Physical damage** you can see (cracks, dents, scratches, discoloration, missing parts)
+2. **Screen condition** (cracked, scratched, burn-in, dead pixels, working)
+3. **Body/housing condition** (bent, cracked, scuffed, clean)
+4. **Port/button condition** (if visible — damaged, missing, dirty)
+5. **Overall cosmetic grade** (Pristine / Good / Fair / Poor / Damaged)
+
+**OUTPUT FORMAT:**
+Return ONLY a valid JSON object with this structure:
+{
+  "visual_condition_summary": "A 2-3 sentence summary of the device's physical condition based on the image",
+  "detected_issues": ["list", "of", "specific", "issues", "spotted"],
+  "cosmetic_grade": "Pristine" or "Good" or "Fair" or "Poor" or "Damaged",
+  "confidence": "High" or "Medium" or "Low"
+}
+
+Be honest and specific. Only report what you can actually see in the image. If the image is unclear, set confidence to "Low".
+Respond with valid JSON only — no markdown, no code fences."""
+
+
+async def analyze_device_images(
+    images_base64: list[str],
+    device_name: str = "",
+) -> dict | None:
+    """
+    Use Groq vision model to analyze device images and extract condition info.
+    Each item in images_base64 should be a base64-encoded image string (no data: prefix).
+    Returns a dict with visual_condition_summary, detected_issues, cosmetic_grade, confidence
+    or None on failure.
+    """
+    if not GROQ_API_KEY:
+        logger.warning("GROQ_API_KEY not set — cannot analyze images")
+        return None
+
+    if not images_base64:
+        return None
+
+    # Build multimodal content array
+    content_parts: list[dict] = []
+
+    if device_name:
+        content_parts.append({
+            "type": "text",
+            "text": f"This is a {device_name}. Analyze its physical condition from the image(s)."
+        })
+    else:
+        content_parts.append({
+            "type": "text",
+            "text": "Analyze this device's physical condition from the image(s)."
+        })
+
+    for img_b64 in images_base64[:3]:  # Cap at 3 images to avoid token limits
+        # Ensure no data: prefix
+        if img_b64.startswith("data:"):
+            # Extract just the base64 part
+            img_b64 = img_b64.split(",", 1)[-1]
+
+        content_parts.append({
+            "type": "image_url",
+            "image_url": {
+                "url": f"data:image/jpeg;base64,{img_b64}",
+            },
+        })
+
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(
+                GROQ_CHAT_URL,
+                headers={
+                    "Authorization": f"Bearer {GROQ_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": _VISION_MODEL,
+                    "messages": [
+                        {"role": "system", "content": VISION_PROMPT},
+                        {"role": "user", "content": content_parts},
+                    ],
+                    "temperature": 0.3,
+                    "max_tokens": 1024,
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        content = data["choices"][0]["message"]["content"].strip()
+
+        # Strip markdown code fences if the model added them
+        if content.startswith("```"):
+            content = content.split("\n", 1)[1]
+            if content.endswith("```"):
+                content = content[: content.rfind("```")]
+            content = content.strip()
+
+        result = json.loads(content)
+
+        if not isinstance(result, dict):
+            logger.warning("Vision analysis returned non-dict: %s", type(result))
+            return None
+
+        logger.info(
+            "Vision analysis: grade=%s, issues=%d, confidence=%s",
+            result.get("cosmetic_grade", "?"),
+            len(result.get("detected_issues", [])),
+            result.get("confidence", "?"),
+        )
+        return result
+
+    except Exception as e:
+        logger.exception("Vision analysis failed: %s", e)
         return None

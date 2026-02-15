@@ -50,6 +50,9 @@ import {
   Settings,
   Wifi,
   Printer,
+  ImagePlus,
+  X,
+  Eye,
 } from "lucide-react";
 import type {
   DeviceCondition,
@@ -451,6 +454,11 @@ export default function Home() {
   const [applianceType, setApplianceType] = useState<ApplianceType | null>(null);
   const [ecoApplianceType, setEcoApplianceType] = useState<ApplianceType | null>(null);
 
+  // Image upload state for Eco Exchange
+  const [ecoImages, setEcoImages] = useState<string[]>([]); // base64 strings
+  const [ecoImagePreviews, setEcoImagePreviews] = useState<string[]>([]); // data URLs for preview
+  const ecoFileInputRef = useRef<HTMLInputElement>(null);
+
   // Compute dynamic conditions for each section
   const currentConditions = getConditionsForDevice(deviceType, applianceType);
   const currentEcoConditions = getConditionsForDevice(ecoDeviceType, ecoApplianceType);
@@ -507,6 +515,35 @@ export default function Home() {
     setEcoConditions([]);
   };
 
+  // Image upload handler for Eco Exchange
+  const handleEcoImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const maxImages = 3;
+    const remaining = maxImages - ecoImages.length;
+    const filesToProcess = Array.from(files).slice(0, remaining);
+
+    filesToProcess.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const base64 = dataUrl.split(",")[1]; // strip data:image/...;base64, prefix
+        setEcoImages((prev) => [...prev, base64]);
+        setEcoImagePreviews((prev) => [...prev, dataUrl]);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Reset file input so the same file can be re-selected
+    if (ecoFileInputRef.current) ecoFileInputRef.current.value = "";
+  };
+
+  const removeEcoImage = (index: number) => {
+    setEcoImages((prev) => prev.filter((_, i) => i !== index));
+    setEcoImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
   // Eco Exchange submit
   const handleEcoSubmit = async () => {
     if (!ecoDevice.trim()) return;
@@ -523,6 +560,7 @@ export default function Home() {
           conditions: ecoConditions,
           additionalNotes: ecoNotes,
           deviceType: ecoDeviceType,
+          images: ecoImages,
         }),
       });
 
@@ -543,6 +581,8 @@ export default function Home() {
     setEcoDeviceType("Smartphone");
     setEcoApplianceType(null);
     setEcoNotes("");
+    setEcoImages([]);
+    setEcoImagePreviews([]);
     setEcoResult(null);
     setEcoError(null);
   };
@@ -1017,6 +1057,61 @@ export default function Home() {
               />
             </div>
 
+            {/* Device Image Upload */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-400 uppercase tracking-wider flex items-center gap-2">
+                <Eye className="w-4 h-4 text-green-400" />
+                Upload Device Photos (AI Vision Analysis)
+              </label>
+              <p className="text-xs text-zinc-600">
+                Upload up to 3 photos of your device. Our AI will visually assess the condition for a more accurate valuation.
+              </p>
+
+              {/* Image previews */}
+              {ecoImagePreviews.length > 0 && (
+                <div className="flex gap-3 flex-wrap">
+                  {ecoImagePreviews.map((preview, i) => (
+                    <div key={i} className="relative group">
+                      <img
+                        src={preview}
+                        alt={`Device photo ${i + 1}`}
+                        className="w-24 h-24 object-cover rounded-lg border border-zinc-700"
+                      />
+                      <button
+                        onClick={() => removeEcoImage(i)}
+                        aria-label={`Remove photo ${i + 1}`}
+                        className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Upload button */}
+              {ecoImages.length < 3 && (
+                <button
+                  type="button"
+                  onClick={() => ecoFileInputRef.current?.click()}
+                  className="flex items-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-zinc-700 hover:border-green-500/50 bg-zinc-900/50 hover:bg-green-950/20 transition-all text-sm text-zinc-400 hover:text-green-400 w-full justify-center"
+                >
+                  <ImagePlus className="w-5 h-5" />
+                  {ecoImages.length === 0 ? "Add device photos" : `Add more (${3 - ecoImages.length} remaining)`}
+                </button>
+              )}
+
+              <input
+                ref={ecoFileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleEcoImageUpload}
+                className="hidden"
+                aria-label="Upload device photos"
+              />
+            </div>
+
             {/* Eco Submit */}
             <button
               onClick={handleEcoSubmit}
@@ -1026,7 +1121,7 @@ export default function Home() {
               {ecoLoading ? (
                 <span className="flex items-center justify-center gap-2">
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Evaluating device...
+                  {ecoImages.length > 0 ? "Analyzing images & evaluating..." : "Evaluating device..."}
                 </span>
               ) : (
                 <span className="flex items-center justify-center gap-2">

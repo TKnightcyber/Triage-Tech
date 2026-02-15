@@ -18,6 +18,7 @@ export async function POST(request: NextRequest) {
         deviceType: body.deviceType || "Smartphone",
         ramGB: body.ramGB || 0,
         storageGB: body.storageGB || 0,
+        images: body.images || [],
       }),
     });
 
