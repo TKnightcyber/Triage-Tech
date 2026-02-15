@@ -57,6 +57,7 @@ import {
   Check,
   ScanSearch,
 } from "lucide-react";
+import { calculateEWasteScore, calculateEWasteSavedScore, getBadge } from "@/utils/sustainability";
 import type {
   DeviceCondition,
   DeviceType,
@@ -463,7 +464,7 @@ export default function Home() {
   const [ecoImagePreviews, setEcoImagePreviews] = useState<string[]>([]); // data URLs for preview
   const ecoFileInputRef = useRef<HTMLInputElement>(null);
 
-  // "Don't know your device?" identification state
+  // "Don't know your device?" identification state (eco section)
   const [identifyMode, setIdentifyMode] = useState(false);
   const [identifyImages, setIdentifyImages] = useState<string[]>([]);
   const [identifyPreviews, setIdentifyPreviews] = useState<string[]>([]);
@@ -471,6 +472,15 @@ export default function Home() {
   const [identifyLoading, setIdentifyLoading] = useState(false);
   const [identifyResult, setIdentifyResult] = useState<DeviceIdentifyResponse | null>(null);
   const [identifyError, setIdentifyError] = useState<string | null>(null);
+
+  // "Don't know your device?" identification state (main section)
+  const [mainIdentifyMode, setMainIdentifyMode] = useState(false);
+  const [mainIdentifyImages, setMainIdentifyImages] = useState<string[]>([]);
+  const [mainIdentifyPreviews, setMainIdentifyPreviews] = useState<string[]>([]);
+  const mainIdentifyFileInputRef = useRef<HTMLInputElement>(null);
+  const [mainIdentifyLoading, setMainIdentifyLoading] = useState(false);
+  const [mainIdentifyResult, setMainIdentifyResult] = useState<DeviceIdentifyResponse | null>(null);
+  const [mainIdentifyError, setMainIdentifyError] = useState<string | null>(null);
 
   // Compute dynamic conditions for each section
   const currentConditions = getConditionsForDevice(deviceType, applianceType);
@@ -557,7 +567,7 @@ export default function Home() {
     setEcoImagePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // ─── "Don't know your device?" handlers ─────────────────────────────────
+  // ─── "Don't know your device?" handlers (ECO section) ────────────────────
   const handleIdentifyImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
@@ -606,9 +616,7 @@ export default function Home() {
 
   const handleIdentifyAccept = () => {
     if (!identifyResult) return;
-    // Auto-fill eco exchange fields with the identified device
     setEcoDevice(identifyResult.identifiedDevice);
-    // Map deviceType
     const validTypes: DeviceType[] = ["Smartphone", "Laptop", "Tablet", "Desktop", "Other"];
     const detectedType = identifyResult.deviceType as DeviceType;
     if (validTypes.includes(detectedType)) {
@@ -616,15 +624,12 @@ export default function Home() {
     } else {
       handleEcoDeviceTypeChange("Other");
     }
-    // Pre-fill visual condition as notes
     const notes: string[] = [];
     if (identifyResult.description) notes.push(identifyResult.description);
     if (identifyResult.visualCondition) notes.push(`Condition: ${identifyResult.visualCondition}`);
     if (notes.length > 0) setEcoNotes(notes.join(". "));
-    // Copy the images over to the eco section for condition analysis
     setEcoImages([...identifyImages]);
     setEcoImagePreviews([...identifyPreviews]);
-    // Close identify mode
     setIdentifyMode(false);
     setIdentifyResult(null);
     setIdentifyImages([]);
@@ -632,17 +637,13 @@ export default function Home() {
   };
 
   const handleIdentifyAsUnknown = () => {
-    // Proceed with "Unknown Device"
     setEcoDevice("Unknown Device");
     handleEcoDeviceTypeChange("Other");
-    // Copy images for condition analysis
     setEcoImages([...identifyImages]);
     setEcoImagePreviews([...identifyPreviews]);
-    // Pre-fill notes with whatever we know
     if (identifyResult?.visualCondition) {
       setEcoNotes(`Condition: ${identifyResult.visualCondition}`);
     }
-    // Close identify mode
     setIdentifyMode(false);
     setIdentifyResult(null);
     setIdentifyImages([]);
@@ -655,6 +656,87 @@ export default function Home() {
     setIdentifyPreviews([]);
     setIdentifyResult(null);
     setIdentifyError(null);
+  };
+
+  // ─── "Don't know your device?" handlers (MAIN section) ───────────────────
+  const handleMainIdentifyImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    const maxImages = 3;
+    const remaining = maxImages - mainIdentifyImages.length;
+    const filesToProcess = Array.from(files).slice(0, remaining);
+    filesToProcess.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const base64 = dataUrl.split(",")[1];
+        setMainIdentifyImages((prev) => [...prev, base64]);
+        setMainIdentifyPreviews((prev) => [...prev, dataUrl]);
+      };
+      reader.readAsDataURL(file);
+    });
+    if (mainIdentifyFileInputRef.current) mainIdentifyFileInputRef.current.value = "";
+  };
+
+  const removeMainIdentifyImage = (index: number) => {
+    setMainIdentifyImages((prev) => prev.filter((_, i) => i !== index));
+    setMainIdentifyPreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleMainIdentifySubmit = async () => {
+    if (mainIdentifyImages.length === 0) return;
+    setMainIdentifyLoading(true);
+    setMainIdentifyError(null);
+    setMainIdentifyResult(null);
+
+    try {
+      const res = await fetch("/api/identify-device", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ images: mainIdentifyImages }),
+      });
+      if (!res.ok) throw new Error("Device identification failed. Please try again.");
+      const data: DeviceIdentifyResponse = await res.json();
+      setMainIdentifyResult(data);
+    } catch (err) {
+      setMainIdentifyError(err instanceof Error ? err.message : "Unknown error.");
+    } finally {
+      setMainIdentifyLoading(false);
+    }
+  };
+
+  const handleMainIdentifyAccept = () => {
+    if (!mainIdentifyResult) return;
+    // Auto-fill main search fields
+    setDeviceName(mainIdentifyResult.identifiedDevice);
+    const validTypes: DeviceType[] = ["Smartphone", "Laptop", "Tablet", "Desktop", "Other"];
+    const detectedType = mainIdentifyResult.deviceType as DeviceType;
+    if (validTypes.includes(detectedType)) {
+      handleDeviceTypeChange(detectedType);
+    } else {
+      handleDeviceTypeChange("Other");
+    }
+    setMainIdentifyMode(false);
+    setMainIdentifyResult(null);
+    setMainIdentifyImages([]);
+    setMainIdentifyPreviews([]);
+  };
+
+  const handleMainIdentifyAsUnknown = () => {
+    setDeviceName("Unknown Device");
+    handleDeviceTypeChange("Other");
+    setMainIdentifyMode(false);
+    setMainIdentifyResult(null);
+    setMainIdentifyImages([]);
+    setMainIdentifyPreviews([]);
+  };
+
+  const handleMainIdentifyCancel = () => {
+    setMainIdentifyMode(false);
+    setMainIdentifyImages([]);
+    setMainIdentifyPreviews([]);
+    setMainIdentifyResult(null);
+    setMainIdentifyError(null);
   };
 
   // Eco Exchange submit
@@ -780,6 +862,13 @@ export default function Home() {
     setError(null);
     setVisibleThoughts([]);
     setActiveTab("software");
+    // Clear main identify state
+    setMainIdentifyMode(false);
+    setMainIdentifyImages([]);
+    setMainIdentifyPreviews([]);
+    setMainIdentifyResult(null);
+    setMainIdentifyError(null);
+    setMainIdentifyLoading(false);
   };
 
   // Split recommendations
@@ -849,6 +938,175 @@ export default function Home() {
                 className="w-full bg-zinc-900 border border-zinc-700 rounded-xl pl-12 pr-4 py-4 text-lg placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/50 transition-all"
               />
             </div>
+
+            {/* ─── "Don't know your device?" for Main Section ───────────── */}
+            {!mainIdentifyMode ? (
+              <button
+                type="button"
+                onClick={() => setMainIdentifyMode(true)}
+                className="flex items-center gap-2 text-sm text-zinc-500 hover:text-emerald-400 transition-colors group"
+              >
+                <HelpCircle className="w-4 h-4 group-hover:text-emerald-400 transition-colors" />
+                Don&apos;t know your device? <span className="underline underline-offset-2">Upload a photo &amp; let AI identify it</span>
+              </button>
+            ) : (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-950/10 p-5 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ScanSearch className="w-5 h-5 text-amber-400" />
+                    <h4 className="font-semibold text-amber-400 text-sm">AI Device Identification</h4>
+                  </div>
+                  <button onClick={handleMainIdentifyCancel} aria-label="Close identification" className="text-zinc-500 hover:text-zinc-300 transition-colors">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <p className="text-xs text-zinc-400">
+                  Upload a photo of your device and our AI will try to identify it. If recognized, we&apos;ll auto-fill the details for you.
+                </p>
+
+                {/* Main identify image previews */}
+                {mainIdentifyPreviews.length > 0 && (
+                  <div className="flex gap-3 flex-wrap">
+                    {mainIdentifyPreviews.map((preview, i) => (
+                      <div key={i} className="relative group">
+                        <img
+                          src={preview}
+                          alt={`Device photo ${i + 1}`}
+                          className="w-24 h-24 object-cover rounded-lg border border-zinc-700"
+                        />
+                        <button
+                          onClick={() => removeMainIdentifyImage(i)}
+                          aria-label={`Remove photo ${i + 1}`}
+                          className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Upload button */}
+                {mainIdentifyImages.length < 3 && !mainIdentifyResult && (
+                  <button
+                    type="button"
+                    onClick={() => mainIdentifyFileInputRef.current?.click()}
+                    className="flex items-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-zinc-700 hover:border-amber-500/50 bg-zinc-900/50 hover:bg-amber-950/20 transition-all text-sm text-zinc-400 hover:text-amber-400 w-full justify-center"
+                  >
+                    <ImagePlus className="w-5 h-5" />
+                    {mainIdentifyImages.length === 0 ? "Upload a photo of your device" : `Add more (${3 - mainIdentifyImages.length} remaining)`}
+                  </button>
+                )}
+
+                <input
+                  ref={mainIdentifyFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleMainIdentifyImageUpload}
+                  className="hidden"
+                  aria-label="Upload device photo for identification"
+                />
+
+                {/* Submit button */}
+                {mainIdentifyImages.length > 0 && !mainIdentifyResult && (
+                  <button
+                    onClick={handleMainIdentifySubmit}
+                    disabled={mainIdentifyLoading}
+                    className="w-full py-3 rounded-xl font-semibold text-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-amber-600 hover:bg-amber-500 text-white"
+                  >
+                    {mainIdentifyLoading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Identifying device...
+                      </span>
+                    ) : (
+                      <span className="flex items-center justify-center gap-2">
+                        <ScanSearch className="w-4 h-4" />
+                        Identify My Device
+                      </span>
+                    )}
+                  </button>
+                )}
+
+                {/* Error */}
+                {mainIdentifyError && (
+                  <p className="text-sm text-red-400 text-center">{mainIdentifyError}</p>
+                )}
+
+                {/* Result — confirmation step */}
+                {mainIdentifyResult && (
+                  <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="rounded-lg border border-zinc-700 bg-zinc-900/60 p-4 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${
+                          mainIdentifyResult.confidence === "High" ? "bg-green-400" :
+                          mainIdentifyResult.confidence === "Medium" ? "bg-yellow-400" :
+                          "bg-red-400"
+                        }`} />
+                        <span className="text-xs text-zinc-500 uppercase tracking-wider">
+                          {mainIdentifyResult.confidence} Confidence
+                        </span>
+                      </div>
+
+                      {mainIdentifyResult.identifiedDevice !== "Unknown Device" ? (
+                        <>
+                          <p className="text-zinc-300 text-sm">Is this your device?</p>
+                          <p className="text-xl font-bold text-emerald-400">
+                            {mainIdentifyResult.identifiedDevice}
+                          </p>
+                          {mainIdentifyResult.description && (
+                            <p className="text-xs text-zinc-500">{mainIdentifyResult.description}</p>
+                          )}
+                          <div className="flex items-center gap-2 pt-2">
+                            <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-1 rounded-full">
+                              {mainIdentifyResult.deviceType}
+                            </span>
+                            {mainIdentifyResult.brand !== "Unknown" && (
+                              <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-1 rounded-full">
+                                {mainIdentifyResult.brand}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex gap-2 pt-3">
+                            <button
+                              onClick={handleMainIdentifyAccept}
+                              className="flex-1 py-2.5 rounded-lg font-semibold text-sm bg-emerald-600 hover:bg-emerald-500 text-white transition-all flex items-center justify-center gap-2"
+                            >
+                              <Check className="w-4 h-4" />
+                              Yes, that&apos;s it!
+                            </button>
+                            <button
+                              onClick={handleMainIdentifyAsUnknown}
+                              className="flex-1 py-2.5 rounded-lg font-semibold text-sm bg-zinc-700 hover:bg-zinc-600 text-zinc-200 transition-all flex items-center justify-center gap-2"
+                            >
+                              <X className="w-4 h-4" />
+                              No, proceed as Unknown
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-zinc-300 text-sm">
+                            We couldn&apos;t identify the exact device, but you can still search for revival projects.
+                          </p>
+                          {mainIdentifyResult.description && (
+                            <p className="text-xs text-zinc-500">{mainIdentifyResult.description}</p>
+                          )}
+                          <button
+                            onClick={handleMainIdentifyAsUnknown}
+                            className="w-full py-2.5 rounded-lg font-semibold text-sm bg-amber-600 hover:bg-amber-500 text-white transition-all flex items-center justify-center gap-2 mt-2"
+                          >
+                            <Check className="w-4 h-4" />
+                            Continue with Unknown Device
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Device Type Selector */}
             <div className="space-y-3">
@@ -1669,6 +1927,30 @@ export default function Home() {
                 New Search
               </button>
             </div>
+
+            {/* Sustainability Score Widget */}
+            {(() => {
+              const sustainability = calculateEWasteScore(deviceType);
+              const ewasteScore = calculateEWasteSavedScore(1);
+              const badge = getBadge(ewasteScore);
+              return (
+                <div className="flex flex-wrap gap-4 items-center justify-center p-4 rounded-xl border border-green-500/30 bg-green-950/10">
+                  <div className="flex items-center gap-2">
+                    <Leaf className="w-5 h-5 text-green-400" />
+                    <span className="text-green-400 font-semibold text-sm">Device Rescued {badge.icon}</span>
+                  </div>
+                  <div className="text-sm text-zinc-400">
+                    ♻️ CO₂ Saved: <span className="text-green-300 font-semibold">{sustainability.co2Saved} kg</span>
+                  </div>
+                  <div className="text-sm text-zinc-400">
+                    ⏳ Lifespan: <span className="text-green-300 font-semibold">{sustainability.lifespanExtension}</span>
+                  </div>
+                  <div className="text-sm text-zinc-400">
+                    Score: <span className="text-green-300 font-semibold">{ewasteScore}</span> — {badge.label}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Collapsible Thought Log */}
             <details className="group">

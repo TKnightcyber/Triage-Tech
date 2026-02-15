@@ -280,6 +280,12 @@ async def analyze_device_images(
             },
         })
 
+    # Prepend the system prompt as a text part so the model sees instructions alongside images
+    content_parts.insert(0, {
+        "type": "text",
+        "text": VISION_PROMPT,
+    })
+
     try:
         async with httpx.AsyncClient(timeout=60) as client:
             resp = await client.post(
@@ -291,7 +297,6 @@ async def analyze_device_images(
                 json={
                     "model": _VISION_MODEL,
                     "messages": [
-                        {"role": "system", "content": VISION_PROMPT},
                         {"role": "user", "content": content_parts},
                     ],
                     "temperature": 0.3,
@@ -396,6 +401,12 @@ async def identify_device_from_images(
             },
         })
 
+    # Prepend the system prompt as a text part so the model sees instructions alongside images
+    content_parts.insert(0, {
+        "type": "text",
+        "text": IDENTIFY_PROMPT,
+    })
+
     try:
         async with httpx.AsyncClient(timeout=60) as client:
             resp = await client.post(
@@ -407,7 +418,6 @@ async def identify_device_from_images(
                 json={
                     "model": _VISION_MODEL,
                     "messages": [
-                        {"role": "system", "content": IDENTIFY_PROMPT},
                         {"role": "user", "content": content_parts},
                     ],
                     "temperature": 0.3,

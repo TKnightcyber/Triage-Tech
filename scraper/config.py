@@ -8,7 +8,7 @@ load_dotenv(_env_path)
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL = "groq/llama-3.3-70b-versatile"
-GROQ_VISION_MODEL = "llama-3.2-11b-vision-preview"
+GROQ_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 SCRAPER_TIMEOUT = int(os.getenv("SCRAPER_TIMEOUT", "120"))
 MAX_RESULTS_PER_SOURCE = int(os.getenv("MAX_RESULTS_PER_SOURCE", "5"))
 
