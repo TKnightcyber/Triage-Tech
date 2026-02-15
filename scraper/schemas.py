@@ -75,6 +75,22 @@ class EcoValuationRequest(BaseModel):
     images: list[str] = Field(default_factory=list, description="Base64-encoded device images for AI vision analysis")
 
 
+class DeviceIdentifyRequest(BaseModel):
+    """Request to identify a device from uploaded photos."""
+    images: list[str] = Field(description="Base64-encoded device images for AI vision identification")
+
+
+class DeviceIdentifyResponse(BaseModel):
+    """Response from device identification."""
+    identifiedDevice: str = "Unknown Device"
+    brand: str = "Unknown"
+    model: str = "Unknown"
+    deviceType: str = "Other"
+    description: str = ""
+    confidence: str = "Low"
+    visualCondition: str = ""
+
+
 class ScrapeResponse(BaseModel):
     thoughts: list[ThoughtLogEntry]
     recommendations: list[ProjectRecommendation]

@@ -327,3 +327,119 @@ async def analyze_device_images(
     except Exception as e:
         logger.exception("Vision analysis failed: %s", e)
         return None
+
+
+# ─── Vision-based device identification ──────────────────────────────────────
+
+IDENTIFY_PROMPT = """You are a device identification expert. Look at the image(s) carefully and identify what electronic device or appliance this is.
+
+**YOUR TASK:**
+1. Identify the **brand** (manufacturer) if visible (e.g., Apple, Samsung, Dell, LG).
+2. Identify the **model** as specifically as possible (e.g., iPhone 13, Galaxy S22, MacBook Air M1).
+3. Determine the **device type** category: one of "Smartphone", "Laptop", "Tablet", "Desktop", "Fridge", "TV", "Washing Machine", "AC", "Microwave", "Printer", or "Other".
+4. Provide a brief **description** of what you see.
+5. Rate your **confidence**: "High" if brand+model are clearly visible, "Medium" if you can identify the type and maybe the brand, "Low" if you're mostly guessing.
+
+**HINTS:**
+- Look for logos, brand names, model numbers on the device body.
+- Consider the form factor, size, screen shape, camera layout, ports, buttons.
+- If you can see text, labels, or stickers, read them.
+- If the image is too blurry or dark to identify, say so honestly.
+
+**OUTPUT FORMAT:**
+Return ONLY a valid JSON object:
+{
+  "identified_device": "Brand Model (e.g., Samsung Galaxy S21, Dell XPS 15, Unknown Device)",
+  "brand": "Brand name or 'Unknown'",
+  "model": "Model name or 'Unknown'",
+  "device_type": "Smartphone" or "Laptop" or "Tablet" or "Desktop" or "Fridge" or "TV" or "Washing Machine" or "AC" or "Microwave" or "Printer" or "Other",
+  "description": "Brief 1-2 sentence description of what you see in the image",
+  "confidence": "High" or "Medium" or "Low",
+  "visual_condition": "Brief note on physical condition if visible (e.g., 'Screen appears cracked', 'Good cosmetic condition')"
+}
+
+If you absolutely cannot determine what device it is, set identified_device to "Unknown Device" and confidence to "Low".
+Respond with valid JSON only — no markdown, no code fences."""
+
+
+async def identify_device_from_images(
+    images_base64: list[str],
+) -> dict | None:
+    """
+    Use Groq vision model to identify a device from photos.
+    Returns a dict with identified_device, brand, model, device_type, description, confidence, visual_condition
+    or None on failure.
+    """
+    if not GROQ_API_KEY:
+        logger.warning("GROQ_API_KEY not set — cannot identify device")
+        return None
+
+    if not images_base64:
+        return None
+
+    # Build multimodal content array
+    content_parts: list[dict] = [
+        {
+            "type": "text",
+            "text": "What device/appliance is shown in this image? Identify the brand, model, and type. Look carefully for any logos, model numbers, or distinguishing features."
+        }
+    ]
+
+    for img_b64 in images_base64[:3]:
+        if img_b64.startswith("data:"):
+            img_b64 = img_b64.split(",", 1)[-1]
+
+        content_parts.append({
+            "type": "image_url",
+            "image_url": {
+                "url": f"data:image/jpeg;base64,{img_b64}",
+            },
+        })
+
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(
+                GROQ_CHAT_URL,
+                headers={
+                    "Authorization": f"Bearer {GROQ_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": _VISION_MODEL,
+                    "messages": [
+                        {"role": "system", "content": IDENTIFY_PROMPT},
+                        {"role": "user", "content": content_parts},
+                    ],
+                    "temperature": 0.3,
+                    "max_tokens": 1024,
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        content = data["choices"][0]["message"]["content"].strip()
+
+        # Strip markdown code fences if the model added them
+        if content.startswith("```"):
+            content = content.split("\n", 1)[1]
+            if content.endswith("```"):
+                content = content[: content.rfind("```")]
+            content = content.strip()
+
+        result = json.loads(content)
+
+        if not isinstance(result, dict):
+            logger.warning("Device identification returned non-dict: %s", type(result))
+            return None
+
+        logger.info(
+            "Device identification: device=%s, type=%s, confidence=%s",
+            result.get("identified_device", "?"),
+            result.get("device_type", "?"),
+            result.get("confidence", "?"),
+        )
+        return result
+
+    except Exception as e:
+        logger.exception("Device identification failed: %s", e)
+        return None

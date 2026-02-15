@@ -19,9 +19,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from config import GROQ_API_KEY, SCRAPER_TIMEOUT
-from schemas import ScrapeRequest, ScrapeResponse, EcoValuationRequest, EcoValuation, ValuationSummary, TradeInOffer
+from schemas import ScrapeRequest, ScrapeResponse, EcoValuationRequest, EcoValuation, ValuationSummary, TradeInOffer, DeviceIdentifyRequest, DeviceIdentifyResponse
 from pipeline import run_pipeline
-from eco_exchange import generate_eco_valuation, analyze_device_images
+from eco_exchange import generate_eco_valuation, analyze_device_images, identify_device_from_images
 
 logging.basicConfig(
     level=logging.INFO,
@@ -112,6 +112,68 @@ async def scrape(request: ScrapeRequest):
         )
     except Exception as e:
         logger.exception("Scrape failed")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/identify-device", response_model=DeviceIdentifyResponse)
+async def identify_device(request: DeviceIdentifyRequest):
+    """
+    Identify a device from uploaded photos using AI vision.
+    Returns the identified device name, type, brand, model, and confidence.
+    """
+    logger.info("Device identification request: %d images", len(request.images))
+
+    if not GROQ_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="GROQ_API_KEY not configured.",
+        )
+
+    if not request.images:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one image is required.",
+        )
+
+    try:
+        result = await asyncio.wait_for(
+            identify_device_from_images(images_base64=request.images),
+            timeout=30,
+        )
+
+        if not result:
+            return DeviceIdentifyResponse(
+                identifiedDevice="Unknown Device",
+                brand="Unknown",
+                model="Unknown",
+                deviceType="Other",
+                description="Could not identify the device from the provided images.",
+                confidence="Low",
+                visualCondition="",
+            )
+
+        # Map the vision model's device_type to our categories
+        raw_type = result.get("device_type", "Other")
+        # Map appliance types to "Other" for the main device type selector
+        main_device_types = {"Smartphone", "Laptop", "Tablet", "Desktop"}
+        device_type = raw_type if raw_type in main_device_types else "Other"
+
+        return DeviceIdentifyResponse(
+            identifiedDevice=result.get("identified_device", "Unknown Device"),
+            brand=result.get("brand", "Unknown"),
+            model=result.get("model", "Unknown"),
+            deviceType=device_type,
+            description=result.get("description", ""),
+            confidence=result.get("confidence", "Low"),
+            visualCondition=result.get("visual_condition", ""),
+        )
+
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Device identification timed out.")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Device identification failed")
         raise HTTPException(status_code=500, detail=str(e))
 
 

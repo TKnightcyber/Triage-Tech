@@ -76,6 +76,17 @@ export interface EcoValuation {
   tradeInOffers: TradeInOffer[];
 }
 
+// ─── Device Identification (AI Vision) ───────────────────────────────────────
+export interface DeviceIdentifyResponse {
+  identifiedDevice: string;
+  brand: string;
+  model: string;
+  deviceType: string;
+  description: string;
+  confidence: string;
+  visualCondition: string;
+}
+
 // ─── Full API Response ───────────────────────────────────────────────────────
 export interface ResearchResponse {
   thoughts: ThoughtLogEntry[];
