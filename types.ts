@@ -70,7 +70,9 @@ export interface ValuationSummary {
   deviceName: string;
   conditionGrade: string;
   estimatedResaleUsd: number;
+  estimatedResaleInr: number;
   estimatedScrapCashUsd: number;
+  estimatedScrapCashInr: number;
   ecoMessage: string;
 }
 

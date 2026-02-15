@@ -41,26 +41,22 @@ class ThoughtLogEntry(BaseModel):
 
 
 class TradeInOffer(BaseModel):
-    partner: str
-    offerType: str = Field(alias="offer_type", default="Discount Coupon")
-    headline: str
-    monetaryValueCap: str = Field(alias="monetary_value_cap", default="")
-    couponUrl: str = Field(alias="coupon_url", default="")
+    partner: str = ""
+    offerType: str = "Discount Coupon"
+    headline: str = ""
+    monetaryValueCap: str = ""
+    couponUrl: str = ""
     reasoning: str = ""
-
-    class Config:
-        populate_by_name = True
 
 
 class ValuationSummary(BaseModel):
-    deviceName: str = Field(alias="device_name", default="")
-    conditionGrade: str = Field(alias="condition_grade", default="C")
-    estimatedResaleUsd: int | float = Field(alias="estimated_resale_usd", default=0)
-    estimatedScrapCashUsd: int | float = Field(alias="estimated_scrap_cash_usd", default=0)
-    ecoMessage: str = Field(alias="eco_message", default="")
-
-    class Config:
-        populate_by_name = True
+    deviceName: str = ""
+    conditionGrade: str = "C"
+    estimatedResaleUsd: int | float = 0
+    estimatedResaleInr: int | float = 0
+    estimatedScrapCashUsd: int | float = 0
+    estimatedScrapCashInr: int | float = 0
+    ecoMessage: str = ""
 
 
 class EcoValuation(BaseModel):
@@ -72,6 +68,7 @@ class EcoValuationRequest(BaseModel):
     """Standalone eco-valuation request (for landing page)."""
     deviceName: str
     conditions: list[str] = []
+    additionalNotes: str = ""
     deviceType: str = "Smartphone"
     ramGB: int = 0
     storageGB: int = 0

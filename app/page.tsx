@@ -331,6 +331,7 @@ export default function Home() {
   const [ecoDevice, setEcoDevice] = useState("");
   const [ecoConditions, setEcoConditions] = useState<DeviceCondition[]>([]);
   const [ecoDeviceType, setEcoDeviceType] = useState<DeviceType>("Smartphone");
+  const [ecoNotes, setEcoNotes] = useState("");
   const [ecoLoading, setEcoLoading] = useState(false);
   const [ecoResult, setEcoResult] = useState<EcoValuation | null>(null);
   const [ecoError, setEcoError] = useState<string | null>(null);
@@ -375,6 +376,7 @@ export default function Home() {
         body: JSON.stringify({
           deviceName: ecoDevice,
           conditions: ecoConditions,
+          additionalNotes: ecoNotes,
           deviceType: ecoDeviceType,
         }),
       });
@@ -394,6 +396,7 @@ export default function Home() {
     setEcoDevice("");
     setEcoConditions([]);
     setEcoDeviceType("Smartphone");
+    setEcoNotes("");
     setEcoResult(null);
     setEcoError(null);
   };
@@ -791,6 +794,20 @@ export default function Home() {
               )}
             </div>
 
+            {/* Additional Notes */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-400 uppercase tracking-wider">
+                Describe the condition (optional)
+              </label>
+              <textarea
+                value={ecoNotes}
+                onChange={(e) => setEcoNotes(e.target.value)}
+                placeholder="E.g., 3 years old, scratches on back, slight burn-in on screen, still boots but slow..."
+                rows={3}
+                className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-sm placeholder:text-zinc-600 focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500/50 transition-all resize-none"
+              />
+            </div>
+
             {/* Eco Submit */}
             <button
               onClick={handleEcoSubmit}
@@ -848,12 +865,18 @@ export default function Home() {
                       <p className="text-2xl font-bold text-green-400">
                         ${ecoResult.valuationSummary.estimatedResaleUsd}
                       </p>
-                      <p className="text-[10px] text-zinc-600 mt-0.5">eBay / Swappa / FB Marketplace</p>
+                      <p className="text-sm font-medium text-green-300/70 mt-0.5">
+                        ₹{ecoResult.valuationSummary.estimatedResaleInr?.toLocaleString("en-IN")}
+                      </p>
+                      <p className="text-[10px] text-zinc-600 mt-0.5">eBay / Swappa / OLX</p>
                     </div>
                     <div className="rounded-lg bg-zinc-800/60 border border-zinc-700/50 p-4 text-center">
                       <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Scrap Parts Value</p>
                       <p className="text-2xl font-bold text-zinc-300">
                         ${ecoResult.valuationSummary.estimatedScrapCashUsd}
+                      </p>
+                      <p className="text-sm font-medium text-zinc-400 mt-0.5">
+                        ₹{ecoResult.valuationSummary.estimatedScrapCashInr?.toLocaleString("en-IN")}
                       </p>
                       <p className="text-[10px] text-zinc-600 mt-0.5">raw components only</p>
                     </div>

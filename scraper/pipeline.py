@@ -430,17 +430,22 @@ async def run_pipeline(
         flat_queries.extend(qs)
 
     # ── Build Eco Valuation model ─────────────────────────────────────────
+    USD_TO_INR = 83.5
     eco_valuation: EcoValuation | None = None
     if eco_raw:
         try:
             vs = eco_raw.get("valuation_summary", {})
             offers_raw = eco_raw.get("trade_in_offers", [])
+            resale_usd = vs.get("estimated_resale_usd", 0) or 0
+            scrap_usd = vs.get("estimated_scrap_cash_usd", 0) or 0
             eco_valuation = EcoValuation(
                 valuationSummary=ValuationSummary(
                     deviceName=vs.get("device_name", device),
                     conditionGrade=vs.get("condition_grade", "C"),
-                    estimatedResaleUsd=vs.get("estimated_resale_usd", 0),
-                    estimatedScrapCashUsd=vs.get("estimated_scrap_cash_usd", 0),
+                    estimatedResaleUsd=resale_usd,
+                    estimatedResaleInr=round(resale_usd * USD_TO_INR),
+                    estimatedScrapCashUsd=scrap_usd,
+                    estimatedScrapCashInr=round(scrap_usd * USD_TO_INR),
                     ecoMessage=vs.get("eco_message", ""),
                 ),
                 tradeInOffers=[

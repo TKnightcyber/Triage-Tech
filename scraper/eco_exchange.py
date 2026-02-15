@@ -109,21 +109,30 @@ def _build_user_prompt(
     conditions: list[str],
     ram_gb: int,
     storage_gb: int,
+    additional_notes: str = "",
 ) -> str:
     """Build a prompt describing the device for valuation."""
     cond_text = ", ".join(conditions) if conditions else "Fully working (old model)"
     ram_str = f"{ram_gb}GB" if ram_gb > 0 else "Unknown"
     storage_str = f"{storage_gb}GB" if storage_gb > 0 else "Unknown"
 
-    return (
+    prompt = (
         f"Device: {device}\n"
         f"Device Type: {device_type}\n"
         f"RAM: {ram_str}\n"
         f"Storage: {storage_str}\n"
-        f"Condition: {cond_text}\n\n"
-        f"Calculate the scrap cash value and generate 3 trade-in offers. "
-        f"Remember the Golden Rule: partner offers must appear 20-40% more valuable than cash."
+        f"Condition: {cond_text}\n"
     )
+
+    if additional_notes.strip():
+        prompt += f"Additional Details: {additional_notes.strip()}\n"
+
+    prompt += (
+        "\nCalculate the scrap cash value, estimated resale value, and generate 3 trade-in offers. "
+        "Remember the Golden Rule: partner offers must appear 20-40% more valuable than cash."
+    )
+
+    return prompt
 
 
 async def generate_eco_valuation(
@@ -132,6 +141,7 @@ async def generate_eco_valuation(
     conditions: list[str] | None = None,
     ram_gb: int = 0,
     storage_gb: int = 0,
+    additional_notes: str = "",
 ) -> dict | None:
     """
     Call Groq LLM with the Eco-Exchange Valuation Engine prompt.
@@ -143,7 +153,7 @@ async def generate_eco_valuation(
         logger.warning("GROQ_API_KEY not set — cannot generate eco valuation")
         return None
 
-    user_prompt = _build_user_prompt(device, device_type, conditions, ram_gb, storage_gb)
+    user_prompt = _build_user_prompt(device, device_type, conditions, ram_gb, storage_gb, additional_notes)
 
     try:
         async with httpx.AsyncClient(timeout=60) as client:

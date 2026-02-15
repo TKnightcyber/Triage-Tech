@@ -122,9 +122,10 @@ async def eco_valuation(request: EcoValuationRequest):
     Called from the landing page to get trade-in offers without running full scrape pipeline.
     """
     logger.info(
-        "Eco valuation request: device=%s conditions=%s",
+        "Eco valuation request: device=%s conditions=%s notes=%s",
         request.deviceName,
         request.conditions,
+        request.additionalNotes[:50] if request.additionalNotes else "",
     )
 
     if not GROQ_API_KEY:
@@ -132,6 +133,8 @@ async def eco_valuation(request: EcoValuationRequest):
             status_code=503,
             detail="GROQ_API_KEY not configured.",
         )
+
+    USD_TO_INR = 83.5  # approximate conversion rate
 
     try:
         result = await asyncio.wait_for(
@@ -141,6 +144,7 @@ async def eco_valuation(request: EcoValuationRequest):
                 conditions=request.conditions,
                 ram_gb=request.ramGB,
                 storage_gb=request.storageGB,
+                additional_notes=request.additionalNotes,
             ),
             timeout=60,
         )
@@ -151,12 +155,17 @@ async def eco_valuation(request: EcoValuationRequest):
         vs = result.get("valuation_summary", {})
         offers_raw = result.get("trade_in_offers", [])
 
+        resale_usd = vs.get("estimated_resale_usd", 0) or 0
+        scrap_usd = vs.get("estimated_scrap_cash_usd", 0) or 0
+
         return EcoValuation(
             valuationSummary=ValuationSummary(
                 deviceName=vs.get("device_name", request.deviceName),
                 conditionGrade=vs.get("condition_grade", "C"),
-                estimatedResaleUsd=vs.get("estimated_resale_usd", 0),
-                estimatedScrapCashUsd=vs.get("estimated_scrap_cash_usd", 0),
+                estimatedResaleUsd=resale_usd,
+                estimatedResaleInr=round(resale_usd * USD_TO_INR),
+                estimatedScrapCashUsd=scrap_usd,
+                estimatedScrapCashInr=round(scrap_usd * USD_TO_INR),
                 ecoMessage=vs.get("eco_message", ""),
             ),
             tradeInOffers=[

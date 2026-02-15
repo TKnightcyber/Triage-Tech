@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         deviceName: body.deviceName || "",
         conditions: body.conditions || [],
+        additionalNotes: body.additionalNotes || "",
         deviceType: body.deviceType || "Smartphone",
         ramGB: body.ramGB || 0,
         storageGB: body.storageGB || 0,
